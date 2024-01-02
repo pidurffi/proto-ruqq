@@ -20,7 +20,6 @@ import { BaseController } from '../../../common/controllers/base.controller'
 
 @ApiTags('Entidades Prueba')
 @Controller('entidad-modelo')
-@RoleProtected(ValidRoles.SUPER_ADMIN)
 export class EntidadmodeloController extends BaseController<Entidadmodelo> {
   constructor(private readonly entidadmodeloService: EntidadmodeloService) {
     super()
@@ -51,7 +50,7 @@ export class EntidadmodeloController extends BaseController<Entidadmodelo> {
     description: 'List entidadmodelo ok.',
   })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  @RoleProtected(ValidRoles.USER)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   findAll(@Query() paginationDto: PaginationDto<Entidadmodelo>) {
     if (paginationDto) return this.getService().findAll()
