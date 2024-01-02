@@ -1,4 +1,4 @@
 export { EpExceptionError } from './dto/epErrors.dto'
-export { BaseService, EploggerService, EpxlsService } from './services'
-export { DberrorsDto, EpGenericErrorDto, PaginationDto, SendMailDto, XlsDto, WorksheetsReadDto } from './dto'
+export { BaseService, EploggerService } from './services'
+export { DberrorsDto, EpGenericErrorDto, PaginationDto } from './dto'
 export { baseErrors } from './constants'
