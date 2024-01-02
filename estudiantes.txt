@@ -1,0 +1,91 @@
+@Entity()
+export class Group extends EntityBase {
+  @ApiProperty({ required: true, description: 'Group name' })
+  @IsString()
+  @IsNotEmpty()
+  @Column({ nullable: false })
+  name: string
+
+  @IsOptional()
+  @OneToMany(() => WeekPreference, weekPreference => weekPreference.group, {
+    nullable: true,
+    cascade: true,
+    eager: true,
+  })
+  preferences?: WeekPreference[]
+
+  @ManyToMany(() => Student, {
+    eager: true,
+  })
+  @JoinTable({ name: 'group_student', joinColumn: { name: 'group_id' }, inverseJoinColumn: { name: 'student_id' } })
+  @IsArray()
+  @IsOptional()
+  students: Student[]
+
+
+
+-----------------
+
+
+@Entity()
+export class Student extends EntityBase {
+  @ApiProperty({
+    description: 'Student first name',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Column({ nullable: false })
+  firstName: string
+
+  @ManyToMany(() => Group, {
+    eager: false,
+    cascade: true,
+  })
+  @JoinTable({ name: 'group_student', joinColumn: { name: 'student_id' }, inverseJoinColumn: { name: 'group_id' } })
+  groups?: Group[]
+
+------------------
+
+
+export class CreateGroupDto extends OmitType(Group, ['id', 'createdAt', 'deletedAt', 'updatedAt'] as const) {
+  @ApiProperty({
+    description: 'Contract id',
+    required: true,
+  })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  contractId: number
+}
+
+------------------
+
+async createGroup(groupDto: CreateGroupDto) {
+    const { students, ...group } = groupDto
+
+    const groupSaved = await super.create(group)
+    if (students) {
+      const studentsFromDB = await this.studentService.findByIds(students.map(st => st.id!))
+      const cleanStudents = removeDuplicatesById<Student>(studentsFromDB)
+      cleanStudents.map(st => st.groups?.push(groupSaved))
+      groupSaved.students = cleanStudents
+      await super.updateById(groupSaved.id!, groupSaved)
+    }
+    return groupSaved
+  }
+
+---------------------
+
+
+export function removeDuplicatesById<T>(objects: any[]) {
+  return objects.reduce((acc: any[], current: any) => {
+    const x = acc.find(obj => obj.id === current.id)
+    if (!x) {
+      return acc.concat([current])
+    }
+    return acc
+  }, []) as T[]
+}
+
+

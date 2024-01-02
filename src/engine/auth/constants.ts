@@ -1,0 +1,4 @@
+export const repositories = {
+  AUTH_REPOSITORY: 'AUTH_REPOSITORY',
+  ROLE_REPOSITORY: 'ROLE_REPOSITORY',
+}

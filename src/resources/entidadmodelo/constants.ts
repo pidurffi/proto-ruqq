@@ -1,0 +1,3 @@
+export const repositories = {
+  ENTIDAD_MODELO_REPOSITORY: 'SISTEMA_EXTRACCION_REPOSITORY',
+}
