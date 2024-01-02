@@ -1,5 +1,4 @@
 export { EpExceptionError } from './dto/epErrors.dto'
-export { BaseService, EpmailerService, EploggerService, EpxlsService } from './services'
+export { BaseService, EploggerService, EpxlsService } from './services'
 export { DberrorsDto, EpGenericErrorDto, PaginationDto, SendMailDto, XlsDto, WorksheetsReadDto } from './dto'
 export { baseErrors } from './constants'
-export { EpmailerController } from './controllers/epmailer.controller'

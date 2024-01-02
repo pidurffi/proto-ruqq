@@ -10,7 +10,7 @@ import {
 import { AuthGuard } from '@nestjs/passport'
 
 import { RoleProtected } from '../../../engine/auth/decorators/role-protected.decorator'
-import { GetUser, User, UserRoleGuard, ValidModules } from '../../../engine/auth'
+import { GetUser, User, UserRoleGuard, ValidRoles } from '../../../engine/auth'
 import { PaginationDto } from '../../../common'
 import { CreateEntidadRelacionDto } from '../dto/create-entidad-relacion.dto'
 import { UpdateEntidadRelacionDto } from '../dto/update-entidad-relacion.dto'
@@ -20,7 +20,7 @@ import { BaseController } from '../../../common/controllers/base.controller'
 
 @ApiTags('Entidades Prueba')
 @Controller('entidad-relacion')
-@RoleProtected(ValidModules.entidadRelacion)
+@RoleProtected(ValidRoles.SUPER_ADMIN)
 export class EntidadRelacionController extends BaseController<EntidadRelacion> {
   constructor(private readonly entidadRelacionService: EntidadRelacionService) {
     super()
@@ -37,7 +37,7 @@ export class EntidadRelacionController extends BaseController<EntidadRelacion> {
   })
   @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @RoleProtected(ValidModules.entidadRelacionCreate)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   create(@Body() createEntidadRelacionDto: CreateEntidadRelacionDto, @GetUser() user: User) {
     return this.getService().createEntidadRelacion(createEntidadRelacionDto, user.id)
@@ -51,7 +51,7 @@ export class EntidadRelacionController extends BaseController<EntidadRelacion> {
     description: 'List entidadRelacion ok.',
   })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  @RoleProtected(ValidModules.entidadRelacionAll)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   findAll(@Query() paginationDto: PaginationDto<EntidadRelacion>) {
     if (paginationDto) return this.getService().findAll()
@@ -65,7 +65,7 @@ export class EntidadRelacionController extends BaseController<EntidadRelacion> {
   @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
   @ApiNotFoundResponse({ status: 404, description: 'Not Found.' })
-  @RoleProtected(ValidModules.entidadRelacionOne)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.getService().findOne(id)
@@ -79,7 +79,7 @@ export class EntidadRelacionController extends BaseController<EntidadRelacion> {
   @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
   @ApiNotFoundResponse({ status: 404, description: 'Not Found.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @RoleProtected(ValidModules.entidadRelacionUpdate)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -96,7 +96,7 @@ export class EntidadRelacionController extends BaseController<EntidadRelacion> {
   })
   @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @RoleProtected(ValidModules.entidadRelacionRemove)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.getService().remove(id)

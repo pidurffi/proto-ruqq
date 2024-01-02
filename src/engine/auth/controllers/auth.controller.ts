@@ -7,7 +7,7 @@ import { CreateUserDto, LoginUserDto, PromoteUserDto, UpdateUserDto } from '../d
 import { GetUser, Auth } from '../decorators'
 import { RoleProtected } from '../decorators/role-protected.decorator'
 import { UserRoleGuard } from '../guards/user-role.guard'
-import { ValidModules } from '../interfaces/valid-modules'
+import { ValidRoles } from '../interfaces/valid-roles'
 import { User } from '../entities'
 
 @ApiTags('Auth')
@@ -18,7 +18,7 @@ export class AuthController {
   @Post('register')
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @RoleProtected(ValidModules.super)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   create(@Body() createUserDto: CreateUserDto) {
     return this.authService.create(createUserDto)
@@ -27,7 +27,7 @@ export class AuthController {
   @Patch(':id')
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @RoleProtected(ValidModules.super)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() updateUserDto: UpdateUserDto, @GetUser() user: User) {
     return this.authService.update(id, updateUserDto, user)
@@ -39,7 +39,7 @@ export class AuthController {
   }
 
   @Get('all')
-  @RoleProtected(ValidModules.super)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   getAll() {
     return this.authService.getAllUsers()
@@ -52,7 +52,7 @@ export class AuthController {
   }
 
   @Post('promote')
-  @RoleProtected(ValidModules.super) //solo para los que son de administracion de sistema
+  @RoleProtected(ValidRoles.SUPER_ADMIN) //solo para los que son de administracion de sistema
   @UseGuards(AuthGuard(), UserRoleGuard)
   promotion(@Body() promoteUserDto: PromoteUserDto) {
     return this.authService.promote(promoteUserDto)

@@ -3,8 +3,8 @@ import { AuthGuard } from '@nestjs/passport'
 
 import { RoleProtected } from './role-protected.decorator'
 import { UserRoleGuard } from '../guards/user-role.guard'
-import { ValidModules } from '../interfaces/valid-modules'
+import { ValidRoles } from '../interfaces/valid-roles'
 
-export function Auth(...modules: ValidModules[]) {
-  return applyDecorators(RoleProtected(...modules), UseGuards(AuthGuard(), UserRoleGuard))
+export function Auth(...roles: ValidRoles[]) {
+  return applyDecorators(RoleProtected(...roles), UseGuards(AuthGuard(), UserRoleGuard))
 }
