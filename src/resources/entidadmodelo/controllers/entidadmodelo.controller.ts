@@ -53,6 +53,13 @@ export class EntidadmodeloController extends BaseController<Entidadmodelo> {
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @RoleProtected(ValidModules.entidadmodeloAll)
   @UseGuards(AuthGuard(), UserRoleGuard)
+  // conviene hacer un DTO para el query, pero también se puede manejar así la query:
+  // En lugar de crear un DTO para el query, se puede manejar así, igualar la variable a un objeto con las propiedades que se necesitan...
+  /*
+  findAll(@Query() query: { fecha: string; pozoId: string; horas: number }) {
+    return this.getService().findAll(query)
+  }
+  */
   findAll(@Query() paginationDto: PaginationDto<Entidadmodelo>) {
     if (paginationDto) return this.getService().findAll()
   }
