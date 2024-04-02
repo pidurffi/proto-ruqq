@@ -20,8 +20,8 @@ export class AuthController {
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.authService.create(createUserDto)
+  create(@Body() createUserDto: CreateUserDto, @GetUser() user: User) {
+    return this.authService.create(createUserDto, user.id)
   }
 
   @Patch(':id')

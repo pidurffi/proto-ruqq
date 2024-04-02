@@ -31,14 +31,13 @@ export class AuthService extends BaseService {
     })
   }
 
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto, uid: string) {
     const { password, ...userData } = createUserDto
     try {
       const user = this.userRepository.create({
         ...userData,
         password: bcrypt.hashSync(password, 10),
-        // Arreglar esta bosta...
-        uid: '550e8400-e29b-41d4-a716-446655440000',
+        uid,
       })
 
       await this.userRepository.save(user)
