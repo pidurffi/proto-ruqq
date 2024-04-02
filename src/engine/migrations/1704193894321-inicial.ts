@@ -20,6 +20,7 @@ export class Inicial1704193894321 implements MigrationInterface {
       `ALTER TABLE "entidad_relacion" ADD CONSTRAINT "FK_3c1801d2c7202529159c7e9c913" FOREIGN KEY ("entidad_modelo_id") REFERENCES "entidadmodelo"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     )
 
+    // N5v2LAzzfdgsfgssdzfs
     await queryRunner.query(
       `INSERT INTO public.users(
                       "email", "password", "full_name", "is_active", roles, "deleted_at", "created_at", "updated_at", "uid")

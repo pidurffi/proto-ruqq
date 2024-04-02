@@ -29,14 +29,15 @@ import { AuthGuard } from '@nestjs/passport'
 import { TemplateService } from '../services/template'
 import { TemplateDto, TemplatePaginationDto, UpdateTemplateDto } from '../dto/template'
 import { Template } from '../entities/template'
-import { UserRoleGuard, ValidModules } from '../../../auth/'
+import { UserRoleGuard } from '../../../auth/'
+import { ValidRoles } from '../../../auth/interfaces/index'
 import { PaginationDto } from '../../../../common/'
 import { RoleProtected } from '../../../auth/decorators/role-protected.decorator'
 import { BaseController } from '../../../../common/controllers/base.controller'
 
 @Controller('/template')
 @ApiTags('Template')
-@RoleProtected(ValidModules.template)
+@RoleProtected(ValidRoles.SUPER_ADMIN)
 export class TemplateController extends BaseController<Template> {
   constructor(@Inject(TemplateService) private readonly service: TemplateService) {
     super()
@@ -55,7 +56,7 @@ export class TemplateController extends BaseController<Template> {
   })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @ApiOkResponse({ type: TemplatePaginationDto })
-  @RoleProtected(ValidModules.templateAll)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   async findAll(@Query() paginationDto: PaginationDto<Template>) {
     if (paginationDto) return this.getService().findAll()
@@ -71,7 +72,7 @@ export class TemplateController extends BaseController<Template> {
   @ApiNotFoundResponse({ status: 404, description: 'Not Found.' })
   @ApiOkResponse({ type: Template, description: 'Template detail' })
   @ApiNotFoundResponse({ description: 'Template not found' })
-  @RoleProtected(ValidModules.templateOne)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.getService().findByIdOrFail(id)
@@ -86,7 +87,7 @@ export class TemplateController extends BaseController<Template> {
   })
   @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @RoleProtected(ValidModules.templateCreate)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   async save(@Body() entity: TemplateDto) {
     return this.getService().create(entity)
@@ -102,7 +103,7 @@ export class TemplateController extends BaseController<Template> {
   @ApiNoContentResponse({ description: 'Template deleted' })
   @ApiNotFoundResponse({ description: 'The Template you want to delete does not exist' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  @RoleProtected(ValidModules.templateRemove)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   async delete(@Param('id', ParseUUIDPipe) id: string) {
     await this.getService().delete(id)
@@ -119,7 +120,7 @@ export class TemplateController extends BaseController<Template> {
   @ApiNoContentResponse({ description: 'Template updated' })
   @ApiNotFoundResponse({ description: 'The Template you want to update does not exist' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  @RoleProtected(ValidModules.templateUpdate)
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   async update(@Param('id') id: string, @Body() entity: UpdateTemplateDto) {
     await this.getService().updateById(id, entity)
