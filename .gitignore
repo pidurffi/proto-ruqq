@@ -7,6 +7,9 @@ mysql/
 
 .env
 
+# Archivos públicos / static
+public/
+
 # Logs
 logs
 *.log
