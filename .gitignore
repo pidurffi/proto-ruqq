@@ -33,10 +33,4 @@ lerna-debug.log*
 *.sublime-workspace
 
 # IDE - VSCode
-.vscode
-.vscode/*
-.vscode/
-yarn.lock
 package-lock.json
-.vscode/launch.json
-src/resources/parte-diario/~$Parte_diario_Castanha_2023-06-01.xlsx
