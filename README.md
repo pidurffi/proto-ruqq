@@ -5,7 +5,7 @@
 [circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
 [circleci-url]: https://circleci.com/gh/nestjs/nest
 
-  <h1 align="center">Proyecto OilProd</h1>
+  <h1 align="center">Proyecto boiler-00</h1>
 
 ## Descripción
 
