@@ -22,10 +22,6 @@ $ npm install
 $ npm update
 ```
 
-```bash
-$ yarn install
-```
-
 ## Crear la base de datos en Docker
 
 ```bash

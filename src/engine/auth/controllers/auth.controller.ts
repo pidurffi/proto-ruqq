@@ -46,6 +46,8 @@ export class AuthController {
   }
 
   @Get('checkAuth')
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   @Auth()
   checkAuthStatus(@GetUser(['id']) id: string) {
     return this.authService.checkAuthStatus(id)
