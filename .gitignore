@@ -6,6 +6,7 @@ postgres/
 mysql/
 
 .env
+docker-compose.yml
 
 # Archivos públicos / static
 public/
