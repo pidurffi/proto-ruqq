@@ -2,13 +2,11 @@
 /dist
 /node_modules
 
-postgres/
-mysql/
-
 .env
+docker-compose.yml
 
 # Archivos públicos / static
-public/
+/static/
 
 # Logs
 logs
@@ -37,4 +35,3 @@ lerna-debug.log*
 
 # IDE - VSCode
 package-lock.json
-docker-compose.yml
