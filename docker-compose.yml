@@ -4,7 +4,7 @@ services:
     image: postgres:15.4
     restart: always
     ports:
-      - '5432:5432'
+      - '5435:5432'
     environment:
       POSTGRES_USER: ${PG_DB_USERNAME}
       POSTGRES_PASSWORD: ${PG_DB_PASSWORD}
