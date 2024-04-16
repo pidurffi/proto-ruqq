@@ -6,7 +6,6 @@ postgres/
 mysql/
 
 .env
-docker-compose.yml
 
 # Archivos públicos / static
 public/
@@ -38,3 +37,4 @@ lerna-debug.log*
 
 # IDE - VSCode
 package-lock.json
+docker-compose.yml
