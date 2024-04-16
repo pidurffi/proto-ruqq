@@ -8,8 +8,6 @@ import { AppService } from './app.service'
 import { CommonModule } from './common/common.module'
 import { AuthModule } from './engine/auth/auth.module'
 import { DatabaseModule } from './engine/database/database.module'
-import { EntidadmodeloModule } from './resources/entidadmodelo/entidadmodelo.module'
-import { EntidadRelacionModule } from './resources/entidad-relacion/entidad-relacion.module'
 
 //ImportTemplateModule
 //NO BORRAR LA LINEA DE ARRIBA
@@ -23,8 +21,6 @@ import { EntidadRelacionModule } from './resources/entidad-relacion/entidad-rela
     }),
     AuthModule,
     CommonModule,
-    EntidadmodeloModule,
-    EntidadRelacionModule,
     //TemplateModule
     //NO BORRAR LA LINEA DE ARRIBA
   ],
