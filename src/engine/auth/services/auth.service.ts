@@ -44,7 +44,7 @@ export class AuthService extends BaseService {
 
       return {
         ...user,
-        token: this.getJwtToken({ id: user.id }),
+        // token: this.getJwtToken({ id: user.id }),
         password: undefined,
       }
     } catch (error) {

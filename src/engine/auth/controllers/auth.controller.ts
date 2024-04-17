@@ -15,6 +15,11 @@ import { User } from '../entities'
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Post('login')
+  login(@Body() loginUserDto: LoginUserDto) {
+    return this.authService.login(loginUserDto)
+  }
+
   @Post('register')
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
@@ -31,11 +36,6 @@ export class AuthController {
   @UseGuards(AuthGuard(), UserRoleGuard)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() updateUserDto: UpdateUserDto, @GetUser() user: User) {
     return this.authService.update(id, updateUserDto, user)
-  }
-
-  @Post('login')
-  login(@Body() loginUserDto: LoginUserDto) {
-    return this.authService.login(loginUserDto)
   }
 
   @Get('all')
