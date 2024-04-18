@@ -7,7 +7,7 @@ export class SendMailDto {
     required: true,
   })
   @IsString()
-  sendto?: string
+  sendTo?: string
 
   @ApiProperty({
     default: 'Cuerpo del mail',
