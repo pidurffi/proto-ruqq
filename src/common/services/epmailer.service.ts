@@ -1,4 +1,4 @@
-// Este no tira errores de typescript:
+// epmailer.service.ts
 
 import * as nodemailer from 'nodemailer'
 import { Injectable } from '@nestjs/common'
