@@ -1,22 +1,15 @@
 // epmailer.service.ts
-
-import * as nodemailer from 'nodemailer'
 import { Injectable } from '@nestjs/common'
+import * as nodemailer from 'nodemailer'
+
+import mailerconfig from '../../config/mailer.config'
 
 @Injectable()
 export class EpmailerService {
   private transporter: nodemailer.Transporter
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: 'sandbox.smtp.mailtrap.io',
-      port: 2525,
-      secure: process.env.MAILER_SECURE === 'true',
-      auth: {
-        user: '8a961435639e76',
-        pass: '5165315233102b',
-      },
-    })
+    this.transporter = nodemailer.createTransport(mailerconfig)
   }
 
   async sendMail() {
