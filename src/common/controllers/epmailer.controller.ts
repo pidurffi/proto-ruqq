@@ -1,8 +1,7 @@
-import { Body, Controller, Post } from '@nestjs/common'
+import { Controller, Post } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 
 import { EpmailerService } from '../services/epmailer.service'
-import { SendMailDto } from '../dto/sendmail.dto'
 
 @ApiTags('Mailer')
 @Controller('mailer')
@@ -10,10 +9,10 @@ export class EpmailerController {
   constructor(private readonly mailerService: EpmailerService) {}
 
   @Post('send')
-  create(@Body() body: SendMailDto) {
+  create() {
     console.log('enviando mail')
     try {
-      return this.mailerService.enviar(body)
+      return this.mailerService.sendMail()
     } catch (error) {
       return false
     }

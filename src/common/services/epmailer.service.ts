@@ -1,27 +1,29 @@
-import { Injectable } from '@nestjs/common'
-import { MailerService } from '@nestjs-modules/mailer'
+// Este no tira errores de typescript:
 
-import { SendMailDto } from '../dto/sendmail.dto'
+import * as nodemailer from 'nodemailer'
+import { Injectable } from '@nestjs/common'
 
 @Injectable()
 export class EpmailerService {
-  constructor(private readonly mailerService: MailerService) {}
+  private transporter: nodemailer.Transporter
 
-  enviar(mailinfo: SendMailDto) {
-    const { sendTo, message, subject } = mailinfo
-    this.mailerService
-      .sendMail({
-        to: sendTo, // list of receivers
-        subject: subject, // Subject line
-        text: message, // plaintext body
-        html: message, // HTML body content
-      })
-      .then(() => {
-        console.log('Mail Enviado Correctamente')
-      })
-      .catch(error => {
-        console.log(error)
-        console.log('Hubo Error al enviar email ')
-      })
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: 'sandbox.smtp.mailtrap.io',
+      port: 2525,
+      secure: process.env.MAILER_SECURE === 'true',
+      auth: {
+        user: '8a961435639e76',
+        pass: '5165315233102b',
+      },
+    })
+  }
+
+  async sendMail() {
+    await this.transporter.sendMail({
+      to: 'hmolinari@gmail.com',
+      subject: 'Welcome user! Confirm your Email',
+      text: 'Cuerpo del mail',
+    })
   }
 }
