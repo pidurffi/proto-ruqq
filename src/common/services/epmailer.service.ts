@@ -13,10 +13,16 @@ export class EpmailerService {
   }
 
   async sendMail() {
-    await this.transporter.sendMail({
-      to: 'hmolinari@gmail.com',
-      subject: 'Welcome user! Confirm your Email',
-      text: 'Cuerpo del mail',
-    })
+    try {
+      const result = await this.transporter.sendMail({
+        from: 'hi@ignatix.com',
+        to: 'hmolinari@gmail.com',
+        subject: 'IGNATIX',
+        text: '*** * Cuerpo del mail',
+      })
+      console.log('Mail sent:', result)
+    } catch (error) {
+      console.error('Error sending mail:', error)
+    }
   }
 }

@@ -10,7 +10,6 @@ export class EpmailerController {
 
   @Post('send')
   create() {
-    console.log('enviando mail')
     try {
       return this.mailerService.sendMail()
     } catch (error) {
