@@ -27,11 +27,10 @@ import {
 import { AuthGuard } from '@nestjs/passport'
 
 import { TemplateService } from '../services/template'
-import { TemplateDto, TemplatePaginationDto, UpdateTemplateDto } from '../dto/template'
+import { TemplateDto, TemplateQueryDto, UpdateTemplateDto } from '../dto/template'
 import { Template } from '../entities/template'
 import { UserRoleGuard } from '../../../auth/'
 import { ValidRoles } from '../../../auth/interfaces/index'
-import { PaginationDto } from '../../../../common/'
 import { RoleProtected } from '../../../auth/decorators/role-protected.decorator'
 import { BaseController } from '../../../../common/controllers/base.controller'
 
@@ -47,19 +46,19 @@ export class TemplateController extends BaseController<Template> {
     return this.service
   }
 
-  @Get('/')
-  @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
+  @Get()
   @ApiResponse({
     status: 200,
     description: 'List Template ok.',
   })
+  @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
+  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  @ApiOkResponse({ type: TemplatePaginationDto })
+  // @ApiOkResponse({ type: TemplatePaginationDto })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
-  async findAll(@Query() paginationDto: PaginationDto<Template>) {
-    if (paginationDto) return this.getService().findAll()
+  async findAll(@Query() query: TemplateQueryDto) {
+    return this.getService().findAllWithFilterPaginated(query)
   }
 
   @Get('/:id')

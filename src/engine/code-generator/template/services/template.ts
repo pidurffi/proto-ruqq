@@ -6,6 +6,7 @@ import { Template } from '../entities/template'
 import { EploggerService } from '../../../../common'
 import { resources } from '../../../database/constants'
 import { TemplateRepository } from '../repositories/template'
+import { TemplateQueryDto } from '../dto/template'
 
 @Injectable()
 export class TemplateService extends BaseEntityService<Template> {
@@ -25,9 +26,7 @@ export class TemplateService extends BaseEntityService<Template> {
     return this.repository
   }
 
-  /* 
-  ejemplo
-  async prueba() {
-    return this.getRepository().consultaPrueba()
-  } */
+  async findAllWithFilterPaginated(payload: TemplateQueryDto) {
+    return this.getRepository().findByFiltersPaginated(payload)
+  }
 }
