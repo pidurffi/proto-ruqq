@@ -13,19 +13,20 @@ export class EpmailerService {
     this.transporter = nodemailer.createTransport(mailerconfig)
   }
 
-  async sendMail(mailinfo: SendMailDto) {
+  async sendMail(mailinfo: SendMailDto): Promise<{ status: string; message: string }> {
     const { sendTo, message, subject } = mailinfo
 
     try {
-      const result = await this.transporter.sendMail({
+      await this.transporter.sendMail({
         from: mailerconfig.from,
         to: sendTo,
         subject: subject,
         text: message,
       })
-      // console.log('Mail sent:', result)
+
+      return { status: 'success', message: 'Mail sent successfully' }
     } catch (error) {
-      console.error('Error sending mail:', error)
+      throw new Error('Mail sending failed')
     }
   }
 }

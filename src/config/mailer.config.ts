@@ -17,8 +17,6 @@ interface SMTPTransportOptions extends TransportOptions {
   from: string
 }
 
-console.log(process.env.MAILER_HOST)
-
 const mailerconfig: SMTPTransportOptions = {
   host: process.env.MAILER_HOST || 'localhost',
   port: parseInt(process.env.MAILER_PORT || '25', 10),
