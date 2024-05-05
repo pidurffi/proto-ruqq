@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common'
 import * as nodemailer from 'nodemailer'
 
 import mailerconfig from '../../config/mailer.config'
+import { SendMailDto } from '../dto/sendmail.dto'
 
 @Injectable()
 export class EpmailerService {
@@ -12,15 +13,17 @@ export class EpmailerService {
     this.transporter = nodemailer.createTransport(mailerconfig)
   }
 
-  async sendMail() {
+  async sendMail(mailinfo: SendMailDto) {
+    const { sendTo, message, subject } = mailinfo
+
     try {
       const result = await this.transporter.sendMail({
-        from: 'hi@ignatix.com',
-        to: 'hmolinari@gmail.com',
-        subject: 'IGNATIX',
-        text: '*** * Cuerpo del mail',
+        from: mailerconfig.from,
+        to: sendTo,
+        subject: subject,
+        text: message,
       })
-      console.log('Mail sent:', result)
+      // console.log('Mail sent:', result)
     } catch (error) {
       console.error('Error sending mail:', error)
     }

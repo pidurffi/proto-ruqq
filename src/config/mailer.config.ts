@@ -14,6 +14,7 @@ interface SMTPTransportOptions extends TransportOptions {
   }
   debug: boolean
   logger: boolean
+  from: string
 }
 
 console.log(process.env.MAILER_HOST)
@@ -26,6 +27,8 @@ const mailerconfig: SMTPTransportOptions = {
     user: process.env.MAILER_USER || '',
     pass: process.env.MAILER_PASS || '',
   },
+  from: process.env.MAILER_USER || '', // Agrega esta línea
+
   debug: true, // Habilitar debug
   logger: true, // Activar logging
 }
