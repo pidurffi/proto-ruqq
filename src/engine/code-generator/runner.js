@@ -159,40 +159,40 @@ const addToAppModule = engineModule => {
   })
 }
 
-const addEndpointToValidModule = (engineModule, endpoints) => {
-  const validModuleFile = isWindows
-    ? `${__dirname}\\auth\\interfaces\\valid-modules.ts`.replace('\\code-generator', '')
-    : `${__dirname}/auth/interfaces/valid-modules.ts`.replace('/code-generator', '')
+// const addEndpointToValidModule = (engineModule, endpoints) => {
+//   const validModuleFile = isWindows
+//     ? `${__dirname}\\auth\\interfaces\\valid-modules.ts`.replace('\\code-generator', '')
+//     : `${__dirname}/auth/interfaces/valid-modules.ts`.replace('/code-generator', '')
 
-  fs.readFile(validModuleFile, 'utf8', function (err, data) {
-    if (err) {
-      return console.log(err)
-    }
-    let fileStr = data
-    for (i = 0; i < endpoints.length; i++) {
-      const endpoint = endpoints[i]
-      console.log(engineModule, endpoint)
-      let className = camelize(`${engineModule}${upperCamelCase(endpoint)}`, false)
-      fileStr = replaceAll(
-        fileStr,
-        `//TemplateValidModules`,
-        `${className} = '${engineModule}${endpoint ? '-' + endpoint : endpoint}',\n${
-          i == endpoints.length - 1 ? '\n' : ''
-        }  //TemplateValidModules`,
-      )
-    }
+//   fs.readFile(validModuleFile, 'utf8', function (err, data) {
+//     if (err) {
+//       return console.log(err)
+//     }
+//     let fileStr = data
+//     for (i = 0; i < endpoints.length; i++) {
+//       const endpoint = endpoints[i]
+//       console.log(engineModule, endpoint)
+//       let className = camelize(`${engineModule}${upperCamelCase(endpoint)}`, false)
+//       fileStr = replaceAll(
+//         fileStr,
+//         `//TemplateValidModules`,
+//         `${className} = '${engineModule}${endpoint ? '-' + endpoint : endpoint}',\n${
+//           i == endpoints.length - 1 ? '\n' : ''
+//         }  //TemplateValidModules`,
+//       )
+//     }
 
-    fs.writeFile(validModuleFile, fileStr, 'utf8', function (err) {
-      if (err) return console.log(err)
-    })
-  })
-}
+//     fs.writeFile(validModuleFile, fileStr, 'utf8', function (err) {
+//       if (err) return console.log(err)
+//     })
+//   })
+// }
 
-const addToValidModule = async engineModule => {
-  const endpoints = ['all', 'one', 'create', 'update', 'remove', '']
+// const addToValidModule = async engineModule => {
+//   const endpoints = ['all', 'one', 'create', 'update', 'remove', '']
 
-  addEndpointToValidModule(engineModule, endpoints)
-}
+//   addEndpointToValidModule(engineModule, endpoints)
+// }
 
 const parameters = process.argv.slice(2)
 const engine = parameters[0]
@@ -213,4 +213,4 @@ makeUpFile(engine, 'providers', 'providers')
 makeUpFile(engine, '', 'module')
 makeUpFile(engine, '', 'constants')
 addToAppModule(engine)
-addToValidModule(engine)
+// addToValidModule(engine)
