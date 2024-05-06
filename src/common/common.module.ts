@@ -3,8 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ConsoleLogger, Module } from '@nestjs/common'
 
 import { EploggerService, PaginationDto, EpGenericErrorDto } from './'
-import { EpmailerController } from './controllers/epmailer.controller'
-import { EpmailerService } from './services/epmailer.service'
+import { EpmailerController } from './mailer/mailer.controller'
+import { EpmailerService } from './mailer/mailer.service'
 
 @Module({
   imports: [ConfigModule],

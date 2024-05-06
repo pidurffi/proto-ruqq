@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common'
 import * as nodemailer from 'nodemailer'
 
 import mailerconfig from '../../config/mailer.config'
-import { SendMailDto } from '../dto/sendmail.dto'
+import { SendMailDto } from './sendmail.dto'
 
 @Injectable()
 export class EpmailerService {
