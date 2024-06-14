@@ -1,7 +1,7 @@
 // app.module.ts
 import { join } from 'path'
 import { Module } from '@nestjs/common'
-import { ConfigModule } from '@nestjs/config'
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ServeStaticModule } from '@nestjs/serve-static'
 
 import { AppController } from './app.controller'
@@ -15,10 +15,32 @@ import { DatabaseModule } from './engine/database/database.module'
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: join(__dirname, '..', '.env'),
+    }),
     DatabaseModule,
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'),
+    ServeStaticModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const staticUploadsPath = configService.get<string>('STATIC_UPLOADS_PATH')
+        const staticServeRoot = configService.get<string>('STATIC_SERVE_ROOT')
+
+        if (!staticUploadsPath) {
+          throw new Error('STATIC_UPLOADS_PATH is not defined in the environment variables')
+        }
+        if (!staticServeRoot) {
+          throw new Error('STATIC_SERVE_ROOT is not defined in the environment variables')
+        }
+
+        return [
+          {
+            rootPath: join(__dirname, '..', staticUploadsPath),
+            serveRoot: staticServeRoot,
+          },
+        ]
+      },
+      inject: [ConfigService],
     }),
     AuthModule,
     CommonModule,
