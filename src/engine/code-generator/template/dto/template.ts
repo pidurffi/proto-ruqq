@@ -4,7 +4,7 @@ import { IsOptional, IsString } from 'class-validator'
 import { RequestPaginationDto } from '../../../../common/dto/pagination.dto'
 import { Template } from '../entities/template'
 
-export class TemplateDto extends OmitType(Template, ['id', 'createdAt', 'deletedAt', 'updatedAt'] as const) {}
+export class TemplateDto extends OmitType(Template, ['uid', 'id', 'createdAt', 'deletedAt', 'updatedAt'] as const) {}
 
 export class UpdateTemplateDto extends PartialType(TemplateDto) {}
 

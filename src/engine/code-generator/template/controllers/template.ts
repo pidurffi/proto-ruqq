@@ -29,7 +29,7 @@ import { AuthGuard } from '@nestjs/passport'
 import { TemplateService } from '../services/template'
 import { TemplateDto, TemplateQueryDto, UpdateTemplateDto } from '../dto/template'
 import { Template } from '../entities/template'
-import { UserRoleGuard } from '../../../auth/'
+import { GetUser, User, UserRoleGuard } from '../../../auth/'
 import { ValidRoles } from '../../../auth/interfaces/index'
 import { RoleProtected } from '../../../auth/decorators/role-protected.decorator'
 import { BaseController } from '../../../../common/controllers/base.controller'
@@ -88,8 +88,8 @@ export class TemplateController extends BaseController<Template> {
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
-  async save(@Body() entity: TemplateDto) {
-    return this.getService().create(entity)
+  async createTemplate(@GetUser() user: User, @Body() templateDto: TemplateDto) {
+    return this.getService().createTemplate(templateDto, user.uid)
   }
 
   @Delete('/:id')
@@ -121,7 +121,7 @@ export class TemplateController extends BaseController<Template> {
   @HttpCode(HttpStatus.NO_CONTENT)
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
-  async update(@Param('id') id: string, @Body() entity: UpdateTemplateDto) {
-    await this.getService().updateById(id, entity)
+  async update(@GetUser() user: User, @Param('id') id: string, @Body() updateTemplateDto: UpdateTemplateDto) {
+    await this.getService().updateTemplate(id, updateTemplateDto, user.uid)
   }
 }
