@@ -14,11 +14,12 @@ export class EpmailerService {
   }
 
   async sendMail(mailinfo: SendMailDto): Promise<{ status: string; message: string }> {
-    const { sendTo, message, subject } = mailinfo
+    const { sendTo, replyTo, message, subject } = mailinfo
 
     try {
       await this.transporter.sendMail({
         from: mailerconfig.from,
+        replyTo: replyTo,
         to: sendTo,
         subject: subject,
         text: message,

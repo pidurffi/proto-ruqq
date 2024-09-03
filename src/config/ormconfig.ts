@@ -1,8 +1,11 @@
 import { DataSourceOptions } from 'typeorm'
 import * as dotenv from 'dotenv'
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies'
+import { join } from 'path'
 
-dotenv.config()
+/// Definir la ruta del archivo .env
+const envPath = join(__dirname, '../..', '.env')
+dotenv.config({ path: envPath })
 
 export = [
   {
@@ -17,6 +20,7 @@ export = [
     migrations: [__dirname + '/../engine/migrations/**/*{.ts,.js}'], //esto es para lea de esta carpeta (no es para guarde)
     migrationsRun: false,
     logging: process.env.DB_LOGGING == 'true',
+    //logging: true,
     logger: 'advanced-console',
     namingStrategy: new SnakeNamingStrategy(),
   } as DataSourceOptions,

@@ -1,0 +1,20 @@
+{
+  "hotel-sections": [
+    {
+      "name": "Aparts",
+      "path": "/rooms/aparts"
+    },
+    {
+      "name": "Habitaciones",
+      "path": "/rooms/habitaciones"
+    },
+    {
+      "name": "Monoambiente",
+      "path": "/rooms/monoambiente"
+    },
+    {
+      "name": "Loft",
+      "path": "/rooms/loft"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsOptional, IsString } from 'class-validator'
+import { IsDate, IsOptional, IsString } from 'class-validator'
 
 export class SendMailDto {
   @ApiProperty({
@@ -7,7 +7,21 @@ export class SendMailDto {
     required: true,
   })
   @IsString()
-  sendTo?: string
+  sendTo: string
+
+  @ApiProperty({
+    description: 'Email destination',
+    required: true,
+  })
+  @IsOptional()
+  @IsString()
+  replyTo: string
+
+  @IsDate()
+  dateIn?: Date
+
+  @IsDate()
+  dateOut?: Date
 
   @ApiProperty({
     default: 'Cuerpo del mail',

@@ -5,8 +5,16 @@
 .env
 docker-compose.yml
 
-# Archivos públicos / static
-/static/
+# Ignorar todos los archivos en la carpeta static y sus subcarpetas
+/static/**/*
+/static/**/*.*
+
+# No ignorar las carpetas en la estructura
+!static/
+!static/**/
+# No ignorar archivos .gitkeep
+!/static/**/*.gitkeep
+
 
 # Logs
 logs

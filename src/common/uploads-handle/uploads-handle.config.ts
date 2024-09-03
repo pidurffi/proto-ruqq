@@ -1,5 +1,5 @@
 // upload-handle.config.ts
-import { Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 
 import { UploadsHandleConfig, UploadsHandleEntity } from './uploads-handle.interface'
@@ -15,6 +15,7 @@ export class UploadsConfigService {
     const minWidth = Number(this.configService.get<string>(`${entity}_IMG_MIN_WIDTH`))
     const minHeight = Number(this.configService.get<string>(`${entity}_IMG_MIN_HEIGHT`))
     const maxWidth = Number(this.configService.get<string>(`${entity}_IMG_MAX_WIDTH`))
+    const maxHeight = Number(this.configService.get<string>(`${entity}_IMG_MAX_HEIGHT`))
     const maxFileSize = Number(this.configService.get<string>(`${entity}_FILE_MAX_SIZE`)) * 1024 * 1024
     const allowedExtensions = this.configService.get<string>(`${entity}_IMG_ALLOWED_EXTENSIONS`)?.split(',')
     const thumbsWidth = Number(this.configService.get<string>(`IMG_THUMBS_WIDTH`))
@@ -22,15 +23,20 @@ export class UploadsConfigService {
 
     if (
       !thumbsWidth ||
-      !thumbsFolder ||
       !servePath ||
       !uploadsPath ||
       !fileType ||
       isNaN(maxFileSize) ||
       isNaN(minWidth) ||
-      isNaN(minHeight)
+      isNaN(minHeight) ||
+      isNaN(maxWidth) ||
+      isNaN(maxHeight) ||
+      !allowedExtensions ||
+      !thumbsFolder
     ) {
-      throw new Error(`La configuración de subida de archivos no está completa para la entidad: ${entity}`)
+      throw new BadRequestException(
+        `La configuración de subida de archivos no está completa para la entidad: ${entity}`,
+      )
     }
 
     return {
@@ -40,6 +46,7 @@ export class UploadsConfigService {
       minWidth,
       minHeight,
       maxWidth,
+      maxHeight,
       maxFileSize,
       allowedExtensions,
       thumbsWidth,

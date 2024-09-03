@@ -38,8 +38,8 @@ async function bootstrap() {
   )
 
   const config = new DocumentBuilder()
-    .setTitle('Acrep OilProd RESTFul API')
-    .setDescription('OilProd endpoints')
+    .setTitle('Amuillán RESTFul API')
+    .setDescription('Amuillán endpoints')
     .setVersion('1.0')
     .build()
   const document = SwaggerModule.createDocument(app, config)

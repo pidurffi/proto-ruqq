@@ -38,8 +38,20 @@ export abstract class BaseEntityService<T extends EntityBase> {
       })
       throw new BadRequestException(e.response.message)
     } else {
+      const dbError = error as EpGenericErrorDto
+      if (dbError.code === '23505') {
+        const errorMessage = `Un elemento con el nombre especificado ya existe.` // Mensaje personalizado para el error 23505
+        this.logger.error({
+          message: errorMessage,
+          sendEmail,
+          stack: BadRequestException.name,
+          context,
+        })
+        throw new BadRequestException(errorMessage)
+      }
+
       const dberrors: DberrorsDto = {
-        error: error as EpGenericErrorDto,
+        error: dbError,
         errorsToCheck,
         context,
       }

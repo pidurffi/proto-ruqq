@@ -1,0 +1,3 @@
+export const repositories = {
+  HOTELSERVICE_REPOSITORY: 'HOTELSERVICE_REPOSITORY',
+}
