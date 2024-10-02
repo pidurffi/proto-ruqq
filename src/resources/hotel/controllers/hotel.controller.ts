@@ -52,8 +52,8 @@ export class HotelController extends BaseController<Hotel> {
   @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   // @ApiOkResponse({ type: HotelPaginationDto })
-  @RoleProtected(ValidRoles.SUPER_ADMIN)
-  @UseGuards(AuthGuard(), UserRoleGuard)
+  // @RoleProtected(ValidRoles.SUPER_ADMIN)
+  // @UseGuards(AuthGuard(), UserRoleGuard)
   async getHotel() {
     return this.getService().getHotel()
   }
