@@ -44,7 +44,9 @@ export class UploadsHandleService {
    * @throws {BadRequestException} Si hay un error al borrar los archivos.
    */
   async deleteFile(imgPath: string): Promise<void> {
-    const uploadsPath: string | undefined = this.configService.get<string>('STATIC_UPLOADS_PATH')
+    const uploadsConfig = this.configService.get('uploads')
+    const uploadsPath: string | undefined = uploadsConfig?.general?.staticUploadsPath
+
     if (!uploadsPath) {
       throw new BadRequestException('La ruta de subida no está configurada')
     }

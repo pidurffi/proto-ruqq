@@ -9,29 +9,41 @@ export class UploadsConfigService {
   constructor(private configService: ConfigService) {}
 
   getUploadsHandleConfig(entity: UploadsHandleEntity): UploadsHandleConfig {
-    const uploadsPath = this.configService.get<string>('STATIC_UPLOADS_PATH')
-    const servePath = this.configService.get<string>('STATIC_SERVE_ROOT')
-    const fileType = this.configService.get<string>(`${entity}_FILE_TYPE`)
-    const minWidth = Number(this.configService.get<string>(`${entity}_IMG_MIN_WIDTH`))
-    const minHeight = Number(this.configService.get<string>(`${entity}_IMG_MIN_HEIGHT`))
-    const maxWidth = Number(this.configService.get<string>(`${entity}_IMG_MAX_WIDTH`))
-    const maxHeight = Number(this.configService.get<string>(`${entity}_IMG_MAX_HEIGHT`))
-    const maxFileSize = Number(this.configService.get<string>(`${entity}_FILE_MAX_SIZE`)) * 1024 * 1024
-    const allowedExtensions = this.configService.get<string>(`${entity}_IMG_ALLOWED_EXTENSIONS`)?.split(',')
-    const thumbsWidth = Number(this.configService.get<string>(`IMG_THUMBS_WIDTH`))
-    const thumbsFolder = this.configService.get<string>(`IMG_THUMBS_FOLDER`)
+    // Configuración completa desde config.json
+    const uploadsConfig = this.configService.get('uploads')
 
+    if (!uploadsConfig) {
+      throw new BadRequestException('No se encontró la configuración de uploads')
+    }
+
+    const generalConfig = uploadsConfig.general
+    const entityConfig = uploadsConfig[entity]
+
+    if (!generalConfig) {
+      throw new BadRequestException('No se encontró la configuración general de uploads')
+    }
+
+    if (!entityConfig) {
+      throw new BadRequestException(`No se encontró configuración para la entidad: ${entity}`)
+    }
+
+    const { staticUploadsPath, staticServeRoot, thumbsWidth, thumbsFolder } = generalConfig
+
+    const { fileType, fileMaxSize, imgAllowedExtensions, imgMinWidth, imgMinHeight, imgMaxWidth, imgMaxHeight } =
+      entityConfig
+
+    // Validaciones
     if (
       !thumbsWidth ||
-      !servePath ||
-      !uploadsPath ||
+      !staticServeRoot ||
+      !staticUploadsPath ||
       !fileType ||
-      isNaN(maxFileSize) ||
-      isNaN(minWidth) ||
-      isNaN(minHeight) ||
-      isNaN(maxWidth) ||
-      isNaN(maxHeight) ||
-      !allowedExtensions ||
+      !fileMaxSize ||
+      !imgMinWidth ||
+      !imgMinHeight ||
+      !imgMaxWidth ||
+      !imgMaxHeight ||
+      !imgAllowedExtensions ||
       !thumbsFolder
     ) {
       throw new BadRequestException(
@@ -39,17 +51,20 @@ export class UploadsConfigService {
       )
     }
 
+    // Convertir tamaño de archivo de MB a bytes
+    const maxFileSize = Number(fileMaxSize) * 1024 * 1024
+
     return {
-      uploadsPath,
-      servePath,
+      uploadsPath: staticUploadsPath,
+      servePath: staticServeRoot,
       fileType,
-      minWidth,
-      minHeight,
-      maxWidth,
-      maxHeight,
+      minWidth: Number(imgMinWidth),
+      minHeight: Number(imgMinHeight),
+      maxWidth: Number(imgMaxWidth),
+      maxHeight: Number(imgMaxHeight),
       maxFileSize,
-      allowedExtensions,
-      thumbsWidth,
+      allowedExtensions: imgAllowedExtensions,
+      thumbsWidth: Number(thumbsWidth),
       thumbsFolder,
     }
   }

@@ -31,20 +31,16 @@ const loadJsonConfig = () => {
     ServeStaticModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const staticUploadsPath = configService.get<string>('STATIC_UPLOADS_PATH')
-        const staticServeRoot = configService.get<string>('STATIC_SERVE_ROOT')
+        const uploadsConfig = configService.get('uploads')
+        const staticUploadsPath = uploadsConfig?.general?.staticUploadsPath
+        const staticServeRoot = uploadsConfig?.general?.staticServeRoot
 
         if (!staticUploadsPath) {
-          throw new Error('STATIC_UPLOADS_PATH is not defined in the environment variables')
+          throw new Error('staticUploadsPath is not defined in the uploads configuration')
         }
         if (!staticServeRoot) {
-          throw new Error('STATIC_SERVE_ROOT is not defined in the environment variables')
+          throw new Error('staticServeRoot is not defined in the uploads configuration')
         }
-
-        /*  */
-        // const staticUploadsPath = process.env.STATIC_UPLOADS_PATH || '/static/uploads'
-        // const staticServeRoot = process.env.STATIC_SERVE_ROOT || '/public'
-        /* */
 
         return [
           {

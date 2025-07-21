@@ -16,5 +16,67 @@
       "name": "Loft",
       "path": "/rooms/loft"
     }
-  ]
+  ],
+  "uploads": {
+    "general": {
+      "staticUploadsPath": "static/uploads",
+      "staticServeRoot": "/public",
+      "thumbsWidth": 400,
+      "thumbsFolder": "thumbs"
+    },
+    "banner": {
+      "fileType": "IMAGE",
+      "fileMaxSize": 1.5,
+      "imgAllowedExtensions": ["jpg", "jpeg", "png"],
+      "imgMinWidth": 200,
+      "imgMinHeight": 200,
+      "imgMaxWidth": 1920,
+      "imgMaxHeight": 1080
+    },
+    "room_img": {
+      "fileType": "IMAGE",
+      "fileMaxSize": 3,
+      "imgAllowedExtensions": ["jpg", "jpeg", "png", "webp", "gif"],
+      "imgMinWidth": 200,
+      "imgMinHeight": 200,
+      "imgMaxWidth": 1920,
+      "imgMaxHeight": 1080
+    },
+    "room": {
+      "fileType": "IMAGE",
+      "fileMaxSize": 1.5,
+      "imgAllowedExtensions": ["jpg", "jpeg", "png", "webp", "gif"],
+      "imgMinWidth": 200,
+      "imgMinHeight": 200,
+      "imgMaxWidth": 1920,
+      "imgMaxHeight": 1080
+    },
+    "hotel": {
+      "fileType": "IMAGE",
+      "fileMaxSize": 1.5,
+      "imgAllowedExtensions": ["jpg", "jpeg", "png", "webp", "gif"],
+      "imgMinWidth": 200,
+      "imgMinHeight": 200,
+      "imgMaxWidth": 1920,
+      "imgMaxHeight": 1080
+    },
+    "hotel_img": {
+      "fileType": "IMAGE",
+      "fileMaxSize": 3,
+      "imgAllowedExtensions": ["jpg", "jpeg", "png", "webp", "gif"],
+      "imgMinWidth": 200,
+      "imgMinHeight": 200,
+      "imgMaxWidth": 1920,
+      "imgMaxHeight": 1080
+    },
+    "popup": {
+      "fileType": "IMAGE",
+      "fileMaxSize": 1.5,
+      "imgAllowedExtensions": ["jpg", "jpeg", "png", "webp", "gif"],
+      "imgMinWidth": 200,
+      "imgMinHeight": 200,
+      "imgMaxWidth": 1920,
+      "imgMaxHeight": 1080
+    }
+  }
 }
