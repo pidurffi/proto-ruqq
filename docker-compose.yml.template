@@ -1,17 +1,15 @@
-version: '3.8'
 services:
   dbpg:
-    image: postgres:15.4
+    image: postgres:16.2
     restart: always
     ports:
       - '5435:5432'
     environment:
-      POSTGRES_USER: ${PG_DB_USERNAME}
-      POSTGRES_PASSWORD: ${PG_DB_PASSWORD}
-      POSTGRES_DB: ${PG_DB_NAME}
+      POSTGRES_USER: boiler-00
+      POSTGRES_PASSWORD: Mac07514@_H9asX_8sd7fbdcf2
+      POSTGRES_DB: boiler-00
+      TZ: America/Argentina/Buenos_Aires
     container_name: boiler-00
-    volumes:
-      - ./postgres:/var/lib/posgresql/data
-
-volumes:
-  todo_db: {}
+    # volumes:
+    #   - ./postgres:/var/lib/postgresql/data
+    #   - pgdata:/var/lib/postgresql/data
