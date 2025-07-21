@@ -21,8 +21,8 @@ export class AuthController {
   }
 
   @Post('register')
-  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBadRequestResponse({ description: 'Bad request.' })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   create(@Body() createUserDto: CreateUserDto, @GetUser() user: User) {
@@ -30,8 +30,8 @@ export class AuthController {
   }
 
   @Patch(':id')
-  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBadRequestResponse({ description: 'Bad request.' })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() updateUserDto: UpdateUserDto, @GetUser() user: User) {

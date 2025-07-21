@@ -1,3 +1,0 @@
-export const repositories = {
-  ROOMEQUIPMENT_REPOSITORY: 'ROOMEQUIPMENT_REPOSITORY',
-}

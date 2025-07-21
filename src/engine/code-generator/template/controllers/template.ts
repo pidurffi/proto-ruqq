@@ -51,9 +51,9 @@ export class TemplateController extends BaseController<Template> {
     status: 200,
     description: 'List Template ok.',
   })
-  @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBadRequestResponse({ description: 'Bad request.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
   // @ApiOkResponse({ type: TemplatePaginationDto })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
@@ -66,9 +66,9 @@ export class TemplateController extends BaseController<Template> {
     status: 200,
     description: 'Template ok.',
   })
-  @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
-  @ApiNotFoundResponse({ status: 404, description: 'Not Found.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBadRequestResponse({ description: 'Bad request.' })
+  @ApiNotFoundResponse({ description: 'Not Found.' })
   @ApiOkResponse({ type: Template, description: 'Template detail' })
   @ApiNotFoundResponse({ description: 'Template not found' })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
@@ -84,8 +84,8 @@ export class TemplateController extends BaseController<Template> {
     status: 200,
     description: 'Post Template ok.',
   })
-  @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBadRequestResponse({ description: 'Bad request.' })
   @RoleProtected(ValidRoles.SUPER_ADMIN)
   @UseGuards(AuthGuard(), UserRoleGuard)
   async createTemplate(@GetUser() user: User, @Body() templateDto: TemplateDto) {
@@ -97,8 +97,8 @@ export class TemplateController extends BaseController<Template> {
     status: 200,
     description: 'Delete Template ok.',
   })
-  @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBadRequestResponse({ description: 'Bad request.' })
   @ApiNoContentResponse({ description: 'Template deleted' })
   @ApiNotFoundResponse({ description: 'The Template you want to delete does not exist' })
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -110,12 +110,11 @@ export class TemplateController extends BaseController<Template> {
 
   @Patch('/:id')
   @ApiOkResponse({
-    status: 201,
     description: 'The record has been successfully updated.',
   })
-  @ApiForbiddenResponse({ status: 401, description: 'Forbidden.' })
-  @ApiNotFoundResponse({ status: 404, description: 'Not Found.' })
-  @ApiBadRequestResponse({ status: 400, description: 'Bad request.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiNotFoundResponse({ description: 'Not Found.' })
+  @ApiBadRequestResponse({ description: 'Bad request.' })
   @ApiNoContentResponse({ description: 'Template updated' })
   @ApiNotFoundResponse({ description: 'The Template you want to update does not exist' })
   @HttpCode(HttpStatus.NO_CONTENT)

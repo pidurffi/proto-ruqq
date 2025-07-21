@@ -17,8 +17,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     configService: ConfigService,
   ) {
+    const jwtSecret = configService.get<string>('JWT_SECRET')
+
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET no está definido en la configuración')
+    }
+
     super({
-      secretOrKey: configService.get('JWT_SECRET'),
+      secretOrKey: jwtSecret,
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
     })
   }
