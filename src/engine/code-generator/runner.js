@@ -1,216 +1,95 @@
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
-const fs = require('fs-extra')
-const upperCamelCase = require('uppercamelcase')
-const camelize = require('camelize')
+// Ya no se necesitan directamente aquí, se usan en los módulos.
+// const upperCamelCase = require('uppercamelcase');
+// const camelize = require('camelize');
+// const fs = require('fs-extra'); // Se usa a través de file-system.js
 
-const imports = `import { ApiProperty } from '@nestjs/swagger'
-import { typeImport } from 'class-validator'
-`
+// Importar los nuevos módulos
+const fileSystem = require('./modules/file-system.js');
+const stringUtils = require('./modules/string-utils.js');
+const templateProcessor = require('./modules/template-processor.js');
+const projectUpdater = require('./modules/project-updater.js');
+const path = require('path'); // Para construir rutas de forma más robusta
 
-const booleanPropertyDummy = `@ApiProperty({
-    description: 'Property dummyBoolean',
-    type: Boolean,
-  })
-  @IsBoolean()
-  @Column()
-  dummyBoolean: boolean
+// Las constantes como imports, booleanPropertyDummy, etc., no se usan en la lógica refactorizada.
+// Si fueran necesarias para alguna parte de la generación de contenido que no se haya movido,
+// deberían moverse al módulo correspondiente (probablemente template-processor.js).
+// Por ahora, se asume que toda la manipulación de plantillas está en template-processor.js.
 
-  //propP@ram`
+const main = async () => {
+  const parameters = process.argv.slice(2);
+  const engineName = parameters[0];
 
-const stringPropertyDummy = `@ApiProperty({
-    description: 'Property dummyString',
-    type: String,
-  })
-  @IsString()
-  @Column()
-  dummyString: string
-
-  //propP@ram`
-
-const numberPropertyDummy = `@ApiProperty({
-    description: 'Property dummyNumber',
-    type: Number,
-  })
-  @IsNumber()
-  @Column()
-  dummyNumber: number
-
-  //propP@ram`
-
-const replaceAll = (string, search, replace) => {
-  return string.split(search).join(replace)
-}
-
-/* const makeUpEntity = fileStr => {
-  let entityFile = imports + fileStr
-
-  entityFile = replaceAll(entityFile, `, typeImport`, '')
-  entityFile = replaceAll(
-    entityFile,
-    `\n
-  //propP@ram`,
-    '',
-  )
-  entityFile = replaceAll(entityFile, `import { Entity } from 'typeorm'`, `import { Column, Entity } from 'typeorm'`)
-
-  return entityFile
-} */
-
-//Copy folder
-const copyFolder = engineFolder => {
-  console.log(`${__dirname}`)
-  const srcDir = `${__dirname}/template`
-
-  console.log(srcDir)
-  console.log(engineFolder)
-
-  fs.copySync(srcDir, engineFolder, { overwrite: false }, err => {
-    if (err) throw err
-    console.log('source.txt was copied to destination.txt')
-  })
-}
-
-//Change entity file name and contents
-const makeUpController = (fileStr, engineName) => {
-  response = replaceAll(fileStr, `@Controller('/template')`, `@Controller('/${engineName}')`)
-  response = replaceAll(response, 'templateAll', `${camelize(engineName, false)}All`)
-  response = replaceAll(response, 'templateOne', `${camelize(engineName, false)}One`)
-  response = replaceAll(response, 'templateCreate', `${camelize(engineName, false)}Create`)
-  response = replaceAll(response, 'templateRemove', `${camelize(engineName, false)}Remove`)
-  response = replaceAll(response, 'templateUpdate', `${camelize(engineName, false)}Update`)
-  response = replaceAll(response, 'template', `${camelize(engineName, false)}`)
-  return response
-}
-
-const makeUpImports = (fileStr, engineName, type = '') => {
-  let response = replaceAll(fileStr, 'entities/template', `entities/${engineName}.entity`)
-  response = replaceAll(response, 'dto/template', `dto/${engineName}.dto`)
-  response = replaceAll(response, 'services/template', `services/${engineName}.service`)
-  response = replaceAll(response, 'controllers/template', `controllers/${engineName}.controller`)
-  response = replaceAll(response, 'providers/template', `providers/${engineName}.providers`)
-  response = replaceAll(response, 'repositories/template', `repositories/${engineName}.repository`)
-
-  if (type === 'module') {
-    response = replaceAll(response, '../../database', `../../engine/database`)
-    response = replaceAll(response, '../../../common', `../../common`)
-    response = replaceAll(response, '../../auth', `../../engine/auth`)
-  } else {
-    response = replaceAll(response, '../../../../common', `../../../common`)
-    response = replaceAll(response, '../../../auth', `../../../engine/auth`)
-    response = replaceAll(response, '../../../database', `../../../engine/database`)
-  }
-  return response
-}
-
-//Change repository file name and contents
-const makeUpFile = async (engineName, typeFolder, type) => {
-  let newName =
-    type !== 'module' ? `${destDir}/${typeFolder}/${engineName}.${type}.ts` : `${destDir}/${engineName}.${type}.ts`
-
-  if (type !== 'constants') {
-    const actualName = type !== 'module' ? `${destDir}/${typeFolder}/template.ts` : `${destDir}/template.module.ts`
-    await fs.rename(actualName, newName)
-  } else {
-    newName = `${destDir}/constants.ts`
+  if (!engineName) {
+    console.error('Error: No engine name provided.');
+    console.log('Usage: node runner.js <EngineName>');
+    process.exit(1);
   }
 
-  fs.readFile(newName, 'utf8', function (err, data) {
-    if (err) {
-      return console.log(err)
-    }
-    const className = upperCamelCase(engineName)
-    let fileStr = replaceAll(data, 'Template', className)
-    fileStr = replaceAll(fileStr, 'TEMPLATE_REPOSITORY', `${className.toUpperCase()}_REPOSITORY`)
+  console.log(`Starting code generation for engine: ${engineName}`);
 
-    fileStr = makeUpImports(fileStr, engineName, type)
+  const isWindows = process.platform === 'win32';
 
-    /* if (type === 'entity') fileStr = makeUpEntity(fileStr)
-    else */
-    if (type === 'controller') fileStr = makeUpController(fileStr, engineName)
+  // Definir rutas de manera más centralizada
+  // __dirname en un script ejecutado con node es el directorio del script actual (src/engine/code-generator)
+  const baseDir = path.resolve(__dirname, '..', '..'); // Resuelve a la raíz del proyecto src/
+  const generatorDir = __dirname; // Directorio actual del runner
 
-    fs.writeFile(newName, fileStr, 'utf8', function (err) {
-      if (err) return console.log(err)
-    })
-  })
-}
+  const templateSourceDir = path.join(generatorDir, 'template');
+  // Asegurarse que destDir se calcula desde la raíz del proyecto o una ubicación esperada
+  // El original era: `${__dirname}/../resources/${engine}`.replace('/code-generator', '')
+  // Esto implica que resources está al mismo nivel que engine.
+  // Si __dirname es /path/to/project/src/engine/code-generator
+  // entonces __dirname/.. es /path/to/project/src/engine
+  // y __dirname/../.. es /path/to/project/src
+  // El replace de /code-generator era para quitarlo si se partía de otra base.
+  // La nueva ruta debería ser: path.join(baseDir, 'resources', engineName)
+  // Asumiendo que 'resources' está en 'src/resources'
+  const destDir = path.join(baseDir, 'resources', engineName);
 
-const addToAppModule = engineModule => {
-  const appModuleFile = isWindows
-    ? `${__dirname}\\..\\app.module.ts`.replace('\\code-generator', '')
-    : `${__dirname}/../app.module.ts`.replace('/code-generator', '')
-  fs.readFile(appModuleFile, 'utf8', function (err, data) {
-    if (err) {
-      return console.log(err)
-    }
-    const className = upperCamelCase(`${engineModule}Module`)
-    let fileStr = replaceAll(data, '//TemplateModule', `${className},\n    //TemplateModule`)
-    fileStr = replaceAll(
-      fileStr,
-      '//ImportTemplateModule',
-      `import { ${className} } from './resources/${engineModule}/${engineModule}.module'\n//ImportTemplateModule`,
-    )
+  // Rutas a archivos de proyecto
+  // app.module.ts está en src/app.module.ts
+  const appModulePath = path.join(baseDir, 'app.module.ts');
 
-    fs.writeFile(appModuleFile, fileStr, 'utf8', function (err) {
-      if (err) return console.log(err)
-    })
-  })
-}
+  // valid-modules.ts está en src/engine/auth/interfaces/valid-modules.ts
+  const validModulesPath = path.join(baseDir, 'engine', 'auth', 'interfaces', 'valid-modules.ts');
 
-// const addEndpointToValidModule = (engineModule, endpoints) => {
-//   const validModuleFile = isWindows
-//     ? `${__dirname}\\auth\\interfaces\\valid-modules.ts`.replace('\\code-generator', '')
-//     : `${__dirname}/auth/interfaces/valid-modules.ts`.replace('/code-generator', '')
+  console.log(`Template source directory: ${templateSourceDir}`);
+  console.log(`Destination directory: ${destDir}`);
+  console.log(`AppModule path: ${appModulePath}`);
+  console.log(`ValidModules path: ${validModulesPath}`);
 
-//   fs.readFile(validModuleFile, 'utf8', function (err, data) {
-//     if (err) {
-//       return console.log(err)
-//     }
-//     let fileStr = data
-//     for (i = 0; i < endpoints.length; i++) {
-//       const endpoint = endpoints[i]
-//       console.log(engineModule, endpoint)
-//       let className = camelize(`${engineModule}${upperCamelCase(endpoint)}`, false)
-//       fileStr = replaceAll(
-//         fileStr,
-//         `//TemplateValidModules`,
-//         `${className} = '${engineModule}${endpoint ? '-' + endpoint : endpoint}',\n${
-//           i == endpoints.length - 1 ? '\n' : ''
-//         }  //TemplateValidModules`,
-//       )
-//     }
+  try {
+    // 1. Copiar la carpeta de plantillas
+    // La función copyFolder en file-system.js usa fs.copySync, por lo que no es async.
+    // El path a template es `${__dirname}/template` que es `templateSourceDir`
+    fileSystem.copyFolder(templateSourceDir, destDir);
+    console.log('Template folder copied successfully.');
 
-//     fs.writeFile(validModuleFile, fileStr, 'utf8', function (err) {
-//       if (err) return console.log(err)
-//     })
-//   })
-// }
+    // 2. Procesar todas las plantillas (renombrar archivos y modificar contenido)
+    // processAllTemplates es async
+    await templateProcessor.processAllTemplates(destDir, engineName, fileSystem, stringUtils);
+    console.log('Templates processed successfully.');
 
-// const addToValidModule = async engineModule => {
-//   const endpoints = ['all', 'one', 'create', 'update', 'remove', '']
+    // 3. Actualizar AppModule
+    // updateAppModule es async
+    await projectUpdater.updateAppModule(engineName, appModulePath, fileSystem, stringUtils);
+    console.log('AppModule updated successfully.');
 
-//   addEndpointToValidModule(engineModule, endpoints)
-// }
+    // 4. Actualizar ValidModules
+    // updateValidModules es async
+    await projectUpdater.updateValidModules(engineName, validModulesPath, fileSystem, stringUtils);
+    console.log('ValidModules updated successfully.');
 
-const parameters = process.argv.slice(2)
-const engine = parameters[0]
+    console.log(`Code generation for engine "${engineName}" completed successfully!`);
 
-const isWindows = process.platform === 'win32'
+  } catch (error) {
+    console.error(`Error during code generation for engine "${engineName}":`, error);
+    process.exit(1);
+  }
+};
 
-const destDir = isWindows
-  ? `${__dirname}\\..\\resources\\${engine}`.replace('\\code-generator', '')
-  : `${__dirname}/../resources/${engine}`.replace('/code-generator', '')
-
-copyFolder(destDir)
-makeUpFile(engine, 'entities', 'entity')
-makeUpFile(engine, 'repositories', 'repository')
-makeUpFile(engine, 'dto', 'dto')
-makeUpFile(engine, 'services', 'service')
-makeUpFile(engine, 'controllers', 'controller')
-makeUpFile(engine, 'providers', 'providers')
-makeUpFile(engine, '', 'module')
-makeUpFile(engine, '', 'constants')
-addToAppModule(engine)
-// addToValidModule(engine)
+// Ejecutar la función principal
+main();

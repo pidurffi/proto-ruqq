@@ -4,32 +4,37 @@ import { Repository } from 'typeorm'
 
 import { Template } from '../entities/template'
 import { repositories } from '../constants'
-import { TemplateQueryDto } from '../dto/template'
-import { PaginationDto } from '../../../../common'
+import { TemplateQueryDto } from '../dto'
+import { PaginationDto } from '../../../../common/dto/pagination.dto'
 
 @Injectable()
 export class TemplateRepository extends Repository<Template> {
-  constructor(@Inject(repositories.TEMPLATE_REPOSITORY) private readonly _: Repository<Template>) {
+  constructor(
+    @Inject(repositories.TEMPLATE_REPOSITORY)
+    private readonly _: Repository<Template>,
+  ) {
     super(_.target, _.manager, _.queryRunner)
   }
 
   async findByFiltersPaginated(payload: TemplateQueryDto) {
-    const { page, pageSize, sortBy, sortOrder } = payload
+    const { page, pageSize, search } = payload
 
     const pageNumber = page ?? 0
     const take = pageSize ?? 10
     const skip = Math.max(0, pageNumber) * take
     const query = this.createQueryBuilder('template')
 
-    if (sortBy && sortOrder) {
-      let sortByColumn = sortBy
-      const column = this.metadata?.columns?.find(column => column.propertyName === sortByColumn)
-      if (!column) sortByColumn = 'id'
-      const order = sortOrder.toString() as 'ASC' | 'DESC'
-      query.orderBy(`template.${sortBy}`, order)
-    }
-    const data = await query.take(take).skip(skip).getMany()
-    const total = await query.getCount()
+    // if (fecha) {
+    //   query.andWhere('p.fecha <= :fecha', {
+    //     fecha,
+    //   })
+    // }
+
+    // if (fechaDesde && fechaHasta) {
+    //   query.andWhere('p.fecha between :fechaDesde and :fechaHasta', { fechaDesde, fechaHasta })
+    // }
+
+    const [data, total] = await query.take(take).skip(skip).getManyAndCount()
 
     return new PaginationDto({
       data,
@@ -39,4 +44,10 @@ export class TemplateRepository extends Repository<Template> {
       total,
     })
   }
+
+  /* 
+  ejemplo
+  public consultaPrueba() {
+    return this.createQueryBuilder('bateria').getMany()
+  } */
 }
