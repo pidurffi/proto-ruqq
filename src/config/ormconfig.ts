@@ -7,7 +7,7 @@ import { join } from 'path'
 const envPath = join(__dirname, '../..', '.env')
 dotenv.config({ path: envPath })
 
-export = [
+const config: DataSourceOptions[] = [
   {
     type: 'postgres',
     host: process.env.PG_DB_HOST,
@@ -15,7 +15,7 @@ export = [
     database: process.env.PG_DB_NAME,
     username: process.env.PG_DB_USERNAME,
     password: process.env.PG_DB_PASSWORD,
-    entities: [__dirname + '/../resources/**/*.entity{.ts,.js}', __dirname + '/../engine/**/*.entity{.ts,.js}'], //esto es para interprete de donde levantar la info de entidades para armar las migrations
+    entities: [__dirname + '/../**/*.entity{.ts,.js}'], //esto es para interprete de donde levantar la info de entidades para armar las migrations
     synchronize: process.env.PG_DB_SYNCHRONIZE == 'true',
     migrations: [__dirname + '/../engine/migrations/**/*{.ts,.js}'], //esto es para lea de esta carpeta (no es para guarde)
     migrationsRun: false,
@@ -36,6 +36,7 @@ export = [
   //  synchronize: process.env.MY_DB_SYNCHRONIZE == 'true',
   //} as DataSourceOptions,
 ]
+export { config }
 
 //dotenv.config();
 //https://stackoverflow.com/questions/51994541/nestjs-typeorm-use-two-or-more-databases

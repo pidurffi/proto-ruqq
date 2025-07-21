@@ -13,9 +13,9 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "typeorm": "typeorm-ts-node-esm -d src/config/typeorm.config.ts",
+    "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d typeorm.cli.config.ts",
     "db:createEmpty": "node src/engine/migration-generator/runner.js",
-    "db:migration:empty": "typeorm-ts-node-esm  migration:create -n ",
+    "db:migration:empty": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d typeorm.cli.config.ts migration:create -n ",
     "db:generate": "npm run db:migrate && npm run typeorm migration:generate",
     "db:migration:generate": "npm run typeorm migration:generate -n",
     "db:migrate": "npm run typeorm migration:run",
@@ -78,6 +78,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "typeorm-ts-node-esm": "^0.3.20",
     "typescript": "^5.8.3"
   }
 }

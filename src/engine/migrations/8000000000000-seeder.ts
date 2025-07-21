@@ -9,7 +9,8 @@ export class Seeder8000000000000 implements MigrationInterface {
     await queryRunner.query(
       `INSERT INTO public.users(
                         "email", "password", "full_name", "is_active", roles, "deleted_at", "created_at", "updated_at", "uid")
-                        VALUES ('superadmin@superadmin.com', '$2b$10$UlLzuWw7XxW5tLdgPEsUc.qLS0zJfDBWVYfNKxUUEupWiUrXuGnQS', 'Super Admin', true, '{SUPER_ADMIN}', NULL, '2023-01-01', '2023-01-01', '46d197eb-f80d-4feb-a63d-4c8a57880302')`,
+                        VALUES ('superadmin@superadmin.com', '$2b$10$UlLzuWw7XxW5tLdgPEsUc.qLS0zJfDBWVYfNKxUUEupWiUrXuGnQS', 'Super Admin', true, '{SUPER_ADMIN}', NULL, '2023-01-01', '2023-01-01', '46d197eb-f80d-4feb-a63d-4c8a57880302')
+                        ON CONFLICT (email) DO NOTHING`,
     )
   }
 

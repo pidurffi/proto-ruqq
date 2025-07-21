@@ -1,7 +1,8 @@
 // typeorm.config.ts
 import { DataSource } from 'typeorm'
+import { config } from './ormconfig'
 
-import ormconfig = require('./ormconfig') //path mapping doesn't work here
-
-const [postg] = ormconfig
-export const dataSourcePostgres = new DataSource(postg)
+const [postg] = config
+const dataSource = new DataSource(postg)
+export const dataSourcePostgres = dataSource
+export default dataSource

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "NodeNext",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -19,7 +19,7 @@
     "noFallthroughCasesInSwitch": false,
     "strict": true,
     "lib": ["ES5", "ES6", "DOM"],
-    "moduleResolution": "node",
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "strictPropertyInitialization": false,
     "resolveJsonModule": true
