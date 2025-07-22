@@ -15,7 +15,7 @@ import { DatabaseModule } from './engine/database/database.module'
 
 // Cargar el archivo JSON de configuración
 const loadJsonConfig = () => {
-  const configPath = join(__dirname, '..', 'config.json')
+  const configPath = join(__dirname, '..', '..', 'config.json')
   return require(configPath)
 }
 
