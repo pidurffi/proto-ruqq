@@ -38,8 +38,13 @@ const generateNameVariations = (engineName) => {
   const variableSafeName = camelCase;
   const classNameBase = upperCamel; // Para nombres de clases: TestJules
 
+  // Para nombres de tabla: convertir guiones a guiones bajos
+  // test-jules -> test_jules, alumno-nota -> alumno_nota
+  const tableName = original.replace(/-/g, '_');
+
   return {
     original: original, // test-jules
+    tableName: tableName, // test_jules
     camelCase: camelCase, // testJules
     upperCamelCase: upperCamel, // TestJules (si es una sola palabra) o MyTestJules (si uppercamelcase lo hace así)
                                 // uppercamelcase('test-jules') -> TestJules

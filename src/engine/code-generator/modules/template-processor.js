@@ -56,6 +56,7 @@ const makeUpControllerInternal = (fileStr, engineName, stringUtils) => {
   response = stringUtils.replaceAll(response, ' template', ` ${names.camelCase}`); // Espacio para evitar reemplazar 'templateS' o similar
   response = stringUtils.replaceAll(response, '(template', `(${names.camelCase}`);
   response = stringUtils.replaceAll(response, '.template', `.${names.camelCase}`);
+  response = stringUtils.replaceAll(response, "'template'", `'${names.tableName}'`); // Para @Entity({ name: 'template' })
   // Este es un reemplazo más riesgoso, pero estaba en el original.
   // Si 'template' es una palabra completa, se reemplaza.
   // Ejemplo: ValidModules.template -> ValidModules.testJules
@@ -206,6 +207,7 @@ const processGenericFile = async (destDir, engineName, typeFolder, fileType, fsW
     fileStr = stringUtils.replaceAll(fileStr, 'TemplateEntity', `${names.entityClassName}`); // Para el entity.ts (si se usara así)
     fileStr = stringUtils.replaceAll(fileStr, 'TemplateModule', `${names.upperCamelCase}Module`); // Para el module.ts
     fileStr = stringUtils.replaceAll(fileStr, 'Template', names.upperCamelCase); // Reemplazo más genérico de clase/tipo
+    fileStr = stringUtils.replaceAll(fileStr, "'template'", `'${names.tableName}'`); // Para @Entity({ name: 'template' })
     fileStr = stringUtils.replaceAll(fileStr, 'TEMPLATE_REPOSITORY', `${names.upperSnakeCase}_REPOSITORY`);
 
     // Reemplazo de 'template' (nombre de archivo base en minúsculas o camelCase para variables)
