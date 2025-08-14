@@ -52,7 +52,9 @@
     "typeorm": "^0.3.25",
     "typeorm-naming-strategies": "4.1.0",
     "uppercamelcase": "^3.0.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.7",

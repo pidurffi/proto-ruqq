@@ -2,7 +2,9 @@
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ConsoleLogger, Module } from '@nestjs/common'
 
-import { EploggerService, PaginationDto, EpGenericErrorDto } from './'
+import { PaginationDto, EpGenericErrorDto } from './'
+import { WinstonLoggerService } from './services/winston-logger.service'
+import { AuditInterceptor } from './interceptors/audit.interceptor'
 import { EpmailerController } from './mailer/mailer.controller'
 import { EpmailerService } from './mailer/mailer.service'
 import { UploadsHandleService } from './uploads-handle/uploads-handle.service'
@@ -16,19 +18,21 @@ import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
     UploadsHandleService,
     UploadsConfigService,
     ConfigService,
-    EploggerService,
     ConsoleLogger,
     PaginationDto,
     EpGenericErrorDto,
     EpmailerService,
+    WinstonLoggerService,
+    AuditInterceptor,
   ],
   exports: [
     UploadsConfigService,
     UploadsHandleService,
-    EploggerService,
     PaginationDto,
     EpGenericErrorDto,
     EpmailerService,
+    WinstonLoggerService,
+    AuditInterceptor,
   ],
 })
 export class CommonModule {}

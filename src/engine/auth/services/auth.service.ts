@@ -7,7 +7,7 @@ import { User } from '../entities/user.entity'
 import { LoginUserDto, CreateUserDto, PromoteUserDto, UpdateUserDto } from '../dto'
 import { JwtPayload } from '../interfaces/jwt-payload.interface'
 import { repositories } from '../constants'
-import { EploggerService, BaseService, baseErrors, DberrorsDto } from '../../../common'
+import { WinstonLoggerService, BaseService, baseErrors, DberrorsDto } from '../../../common'
 import { EpGenericErrorDto } from '../../../common/dto/dberrors.dto'
 
 @Injectable()
@@ -17,7 +17,7 @@ export class AuthService extends BaseService {
   constructor(
     @Inject(repositories.AUTH_REPOSITORY)
     private readonly userRepository: Repository<User>,
-    protected readonly logger: EploggerService,
+    protected readonly logger: WinstonLoggerService,
     private readonly jwtService: JwtService,
   ) {
     super(logger)
@@ -53,7 +53,7 @@ export class AuthService extends BaseService {
         errorsToCheck: [baseErrors.DUPLICATE_ENTRY],
         context: this.context,
       }
-      this.handleDBErrors(baseerror)
+      await this.handleDBErrors(baseerror)
     }
   }
 
@@ -72,7 +72,7 @@ export class AuthService extends BaseService {
       select: { email: true, password: true, id: true },
     })
     if (!user) {
-      this.logger.error({
+      await this.logger.error({
         message: `Usuario no tiene permisos`,
         sendEmail: true,
         stack: UnauthorizedException.name,
@@ -82,7 +82,7 @@ export class AuthService extends BaseService {
     }
 
     if (!bcrypt.compareSync(password, user.password)) {
-      this.logger.error({
+      await this.logger.error({
         message: `401 - Credenciales invalidas (passw) `,
         sendEmail: true,
         stack: UnauthorizedException.name,
@@ -119,7 +119,7 @@ export class AuthService extends BaseService {
 
     //chequeo que existe un usuario valido para email
     if (!user) {
-      this.logger.error({
+      await this.logger.error({
         message: `El usuario ${email} no existe`,
         sendEmail: false,
         stack: BadRequestException.name,

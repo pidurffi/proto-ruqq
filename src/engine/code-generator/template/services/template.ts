@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm'
 
 import { BaseEntityService } from '../../../../common/services/base-entity.service'
 import { Template } from '../entities/template'
-import { baseErrors, EploggerService } from '../../../../common'
+import { baseErrors, WinstonLoggerService } from '../../../../common'
 import { resources } from '../../../database/constants'
 import { TemplateRepository } from '../repositories/template'
 import { TemplateQueryDto, TemplateCreateDto } from '../dto'
@@ -15,7 +15,7 @@ export class TemplateService extends BaseEntityService<Template> {
     @Inject(TemplateRepository)
     private readonly repository: TemplateRepository,
 
-    protected readonly logger: EploggerService,
+    protected readonly logger: WinstonLoggerService,
 
     @Inject(resources.DATA_SOURCE_POSTGRES)
     private readonly dataSource: DataSource,
@@ -34,7 +34,7 @@ export class TemplateService extends BaseEntityService<Template> {
     try {
       return await this.create({ ...createTemplateDto, uid })
     } catch (error) {
-      this.handleErrors(error, this.context, false, [
+      await this.handleErrors(error, this.context, false, [
         baseErrors.DUPLICATE_ENTRY,
       ])
     }

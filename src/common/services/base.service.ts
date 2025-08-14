@@ -1,17 +1,17 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common'
 
-import { EploggerService } from './eplogger.service'
+import { WinstonLoggerService } from './winston-logger.service'
 import { DberrorsDto } from '../dto/dberrors.dto'
 
 @Injectable()
 export class BaseService {
-  constructor(protected readonly logger: EploggerService) {}
+  constructor(protected readonly logger: WinstonLoggerService) {}
 
-  protected handleDBErrors(dberrors: DberrorsDto): never {
+  protected async handleDBErrors(dberrors: DberrorsDto): Promise<never> {
     const { error, errorsToCheck, context } = dberrors
 
     if (errorsToCheck.includes(error.code)) {
-      this.logger.error({
+      await this.logger.error({
         message: error.detail,
         sendEmail: false,
         stack: BadRequestException.name,
@@ -19,7 +19,7 @@ export class BaseService {
       })
       throw new BadRequestException(error.detail)
     }
-    this.logger.error({
+    await this.logger.error({
       message: error,
       sendEmail: false,
       stack: BadRequestException.name,

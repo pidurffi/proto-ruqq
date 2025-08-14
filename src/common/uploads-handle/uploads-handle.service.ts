@@ -5,7 +5,7 @@ import sharp from 'sharp'
 import { glob } from 'glob'
 import { ConfigService } from '@nestjs/config'
 
-import { EploggerService } from '../services'
+import { WinstonLoggerService } from '../services/winston-logger.service'
 import { UploadsHandleEntity, UploadsHandleReturn } from './uploads-handle.interface'
 import { UploadsConfigService } from './uploads-handle.config'
 
@@ -22,7 +22,7 @@ export class UploadsHandleService {
   constructor(
     @Inject(UploadsConfigService)
     private readonly uploadsConfigService: UploadsConfigService,
-    private readonly logger: EploggerService,
+    private readonly logger: WinstonLoggerService,
     private readonly configService: ConfigService,
   ) {}
 

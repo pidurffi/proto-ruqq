@@ -11,7 +11,7 @@ import {
 } from 'typeorm'
 import { isUUID } from 'class-validator'
 
-import { EploggerService } from './eplogger.service'
+import { WinstonLoggerService } from './winston-logger.service'
 import { DberrorsDto, EpGenericErrorDto, PaginationDto, RequestPaginationDto } from '../dto/'
 import { EntityBase } from '../entities/base.entity'
 import { EpExceptionError } from '../dto/epErrors.dto'
@@ -20,9 +20,9 @@ import { EpExceptionError } from '../dto/epErrors.dto'
 export abstract class BaseEntityService<T extends EntityBase> {
   protected abstract getRepository(): Repository<T>
 
-  constructor(protected readonly logger: EploggerService) {}
+  constructor(protected readonly logger: WinstonLoggerService) {}
 
-  protected handleErrors(
+  protected async handleErrors(
     error: EpGenericErrorDto | EpExceptionError | unknown,
     context = 'Errors',
     sendEmail = false,
@@ -30,7 +30,7 @@ export abstract class BaseEntityService<T extends EntityBase> {
   ) {
     if (error && error.hasOwnProperty('status')) {
       const e = error as EpExceptionError
-      this.logger.error({
+      await this.logger.error({
         message: `${e.response.message} [${e.status}]`,
         sendEmail,
         stack: BadRequestException.name,
@@ -41,7 +41,7 @@ export abstract class BaseEntityService<T extends EntityBase> {
       const dbError = error as EpGenericErrorDto
       if (dbError.code === '23505') {
         const errorMessage = `Un elemento con el nombre especificado ya existe.` // Mensaje personalizado para el error 23505
-        this.logger.error({
+        await this.logger.error({
           message: errorMessage,
           sendEmail,
           stack: BadRequestException.name,
@@ -55,15 +55,15 @@ export abstract class BaseEntityService<T extends EntityBase> {
         errorsToCheck,
         context,
       }
-      this.handleDBErrors(dberrors)
+      await this.handleDBErrors(dberrors)
     }
   }
 
-  protected handleDBErrors(dberrors: DberrorsDto): never {
+  protected async handleDBErrors(dberrors: DberrorsDto): Promise<never> {
     const { error, errorsToCheck, context } = dberrors
 
     if (errorsToCheck.includes(error.code)) {
-      this.logger.error({
+      await this.logger.error({
         message: error.detail,
         sendEmail: false,
         stack: BadRequestException.name,
@@ -71,7 +71,7 @@ export abstract class BaseEntityService<T extends EntityBase> {
       })
       throw new BadRequestException(error.detail)
     }
-    this.logger.error({
+    await this.logger.error({
       message: error,
       sendEmail: false,
       stack: BadRequestException.name,
