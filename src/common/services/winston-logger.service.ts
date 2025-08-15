@@ -3,13 +3,11 @@ import { ConfigService } from '@nestjs/config'
 import * as winston from 'winston'
 import 'winston-daily-rotate-file'
 
-import { ArgumentsLogger } from '../interfaces/argumentslogger.interface'
-import { IAuditLogger } from '../interfaces/logger.interface'
 import { SendMailDto } from '../mailer/sendmail.dto'
 import { EpmailerService } from '../mailer/mailer.service'
 
 @Injectable()
-export class WinstonLoggerService implements IAuditLogger {
+export class WinstonLoggerService {
   private logger: winston.Logger
   private context = 'WinstonLogger'
 
@@ -22,7 +20,7 @@ export class WinstonLoggerService implements IAuditLogger {
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
-        winston.format.json(),
+        winston.format.json()
       ),
       transports: [
         // Console transport for development
@@ -34,7 +32,7 @@ export class WinstonLoggerService implements IAuditLogger {
               const ctx = context ? `[${context}]` : ''
               const stackTrace = stack ? ` - ${stack}` : ''
               return `[Nest] ${process.pid} - ${timestamp} ${level.toUpperCase()} ${ctx} ${message}${stackTrace}`
-            }),
+            })
           ),
         }),
 
@@ -44,7 +42,10 @@ export class WinstonLoggerService implements IAuditLogger {
           datePattern: 'YYYY-MM-DD',
           maxSize: '20m',
           maxFiles: '30d',
-          format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+          format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json()
+          )
         }),
 
         // Separate file for errors only
@@ -54,7 +55,10 @@ export class WinstonLoggerService implements IAuditLogger {
           level: 'error',
           maxSize: '20m',
           maxFiles: '30d',
-          format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+          format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json()
+          )
         }),
 
         // Audit log for CREATE/UPDATE/DELETE operations
@@ -63,10 +67,13 @@ export class WinstonLoggerService implements IAuditLogger {
           datePattern: 'YYYY-MM-DD',
           maxSize: '20m',
           maxFiles: '90d', // Keep audit logs longer
-          format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-          level: 'info',
-        }),
-      ],
+          format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json()
+          ),
+          level: 'info'
+        })
+      ]
     })
   }
 
@@ -74,46 +81,77 @@ export class WinstonLoggerService implements IAuditLogger {
     this.context = context
   }
 
-  async log(args: ArgumentsLogger): Promise<void> {
-    const { message, context = this.context } = args
+  async log(params: {
+    message: any
+    context?: string
+    sendEmail?: boolean
+  }): Promise<void> {
+    const { message, context = this.context, sendEmail = false } = params
 
-    await this.sendMail(args, 'LOG')
+    if (sendEmail) {
+      await this.sendMail(message, 'LOG')
+    }
 
     this.logger.info(message, { context })
   }
 
-  async error(args: ArgumentsLogger): Promise<void> {
-    const { message, context = this.context, stack } = args
-
-    await this.sendMail(args, 'ERROR')
-
-    this.logger.error(message, {
-      context,
-      stack: stack || new Error().stack,
+  async error(params: {
+    message: any
+    context?: string
+    stack?: string
+    sendEmail?: boolean
+  }): Promise<void> {
+    const { message, context = this.context, stack, sendEmail = false } = params
+    
+    if (sendEmail) {
+      await this.sendMail(message, 'ERROR')
+    }
+    
+    this.logger.error(message, { 
+      context, 
+      stack: stack || new Error().stack 
     })
   }
 
-  async warn(args: ArgumentsLogger): Promise<void> {
-    const { message, context = this.context } = args
-
-    await this.sendMail(args, 'WARN')
-
+  async warn(params: {
+    message: any
+    context?: string
+    sendEmail?: boolean
+  }): Promise<void> {
+    const { message, context = this.context, sendEmail = false } = params
+    
+    if (sendEmail) {
+      await this.sendMail(message, 'WARN')
+    }
+    
     this.logger.warn(message, { context })
   }
 
-  async debug(args: ArgumentsLogger): Promise<void> {
-    const { message, context = this.context } = args
-
-    await this.sendMail(args, 'DEBUG')
-
+  async debug(params: {
+    message: any
+    context?: string
+    sendEmail?: boolean
+  }): Promise<void> {
+    const { message, context = this.context, sendEmail = false } = params
+    
+    if (sendEmail) {
+      await this.sendMail(message, 'DEBUG')
+    }
+    
     this.logger.debug(message, { context })
   }
 
-  async verbose(args: ArgumentsLogger): Promise<void> {
-    const { message, context = this.context } = args
-
-    await this.sendMail(args, 'VERBOSE')
-
+  async verbose(params: {
+    message: any
+    context?: string
+    sendEmail?: boolean
+  }): Promise<void> {
+    const { message, context = this.context, sendEmail = false } = params
+    
+    if (sendEmail) {
+      await this.sendMail(message, 'VERBOSE')
+    }
+    
     this.logger.verbose(message, { context })
   }
 
@@ -125,42 +163,30 @@ export class WinstonLoggerService implements IAuditLogger {
       id,
       uid,
       timestamp: new Date().toISOString(),
-      data,
+      data
     }
-
-    this.logger.info(`AUDIT: ${operation} ${entity} ${id} by ${uid}`, {
-      auditData,
+    
+    this.logger.info(`AUDIT: ${operation} ${entity} ${id} by ${uid}`, { 
+      auditData
     })
   }
 
-  private async sendMail(args: ArgumentsLogger, typeLog: string) {
-    const { message, sendEmail } = args
-    if (sendEmail) {
-      const entorno = this.configService.get<string>('ENVIRONMENT')
-      const emailTo = this.configService.get<string>(`MAIL_${typeLog}`)
-      
-      if (!emailTo) {
-        this.logger.warn(`Email configuration MAIL_${typeLog} not found`, {
-          context: 'WinstonLoggerService',
-        })
-        return
-      }
-
-      const mailinfo: SendMailDto = {
-        sendTo: emailTo,
-        replyTo: emailTo,
-        subject: `[${entorno}][${typeLog}] ${Date()}`,
-        message: String(message),
-      }
-      try {
-        await this.mailerservice.sendMail(mailinfo)
-      } catch (error) {
-        this.logger.error('Failed to send email notification', {
-          context: 'WinstonLoggerService',
-          error: error instanceof Error ? error.message : String(error),
-          originalMessage: message,
-        })
-      }
+  private async sendMail(message: any, typeLog: string): Promise<void> {
+    const entorno = this.configService.get<string>('ENVIRONMENT')
+    const mailinfo: SendMailDto = {
+      message: String(message),
+      subject: `[${entorno}][${typeLog}] ${Date()}`,
+      sendTo: this.configService.get<string>(`MAIL_${typeLog}`) || '',
+      replyTo: this.configService.get<string>(`MAIL_${typeLog}`) || '',
+    }
+    try {
+      await this.mailerservice.sendMail(mailinfo)
+    } catch (error) {
+      this.logger.error('Failed to send email notification', { 
+        context: 'WinstonLoggerService',
+        error: error instanceof Error ? error.message : String(error),
+        originalMessage: message
+      })
     }
   }
 }

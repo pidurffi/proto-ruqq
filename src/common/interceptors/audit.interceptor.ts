@@ -1,62 +1,80 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common'
 import { Observable } from 'rxjs'
 import { tap } from 'rxjs/operators'
+import { Reflector } from '@nestjs/core'
+
 import { WinstonLoggerService } from '../services/winston-logger.service'
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private readonly logger: WinstonLoggerService) {}
+  constructor(
+    private readonly logger: WinstonLoggerService,
+    private readonly reflector: Reflector,
+  ) {
+    this.logger.setContext('AuditInterceptor')
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest()
-    const { method, url, user, body } = request
+    const method = request.method
+    const url = request.url
+    const user = request.user
 
-    // Extract entity from URL (assumes RESTful routes like /api/users/123)
-    const urlParts = url.split('/')
-    const entity = urlParts[urlParts.length - 2] || urlParts[urlParts.length - 1]
+    // Extract entity name from URL (e.g., /api/cip -> cip, /api/pozo -> pozo)
+    const entityMatch = url.match(/\/api\/([^\/\?]+)/)
+    const entity = entityMatch ? entityMatch[1] : 'unknown'
 
     return next.handle().pipe(
-      tap(() => {
-        try {
-          // Only log for CREATE, UPDATE, DELETE operations
-          if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-            const operation = this.getOperation(method)
-            const uid = user?.id || user?.uid || 'anonymous'
-            const id = this.extractIdFromUrl(url) || 'unknown'
+      tap(result => {
+        // Skip if no result or no user
+        if (!result || !user?.id) return
 
-            this.logger.audit(operation, entity, id, uid, body)
+        try {
+          // Determine operation type and audit accordingly
+          if (method === 'POST' && result?.id) {
+            // CREATE operation
+            this.auditOperation('CREATE', entity, result.id, user.id, result)
+          } else if ((method === 'PUT' || method === 'PATCH') && result?.id) {
+            // UPDATE operation
+            this.auditOperation('UPDATE', entity, result.id, user.id, result)
+          } else if (method === 'DELETE' && result?.id) {
+            // DELETE operation
+            this.auditOperation('DELETE', entity, result.id, user.id, result)
           }
         } catch (error) {
-          // Don't let audit logging break the request
-          console.error('Audit logging error:', error)
+          // Log error but don't break the request flow
+          this.logger.error({
+            message: `Error in audit interceptor: ${error instanceof Error ? error.message : String(error)}`,
+            context: 'AuditInterceptor',
+            stack: error instanceof Error ? error.stack : undefined,
+          }).catch(logError => {
+            // Fallback to console if logger fails
+            console.error('Logger error:', logError)
+          })
         }
       }),
     )
   }
 
-  private getOperation(method: string): 'CREATE' | 'UPDATE' | 'DELETE' {
-    switch (method) {
-      case 'POST':
-        return 'CREATE'
-      case 'PUT':
-      case 'PATCH':
-        return 'UPDATE'
-      case 'DELETE':
-        return 'DELETE'
-      default:
-        return 'UPDATE' // fallback
-    }
-  }
+  private auditOperation(
+    operation: 'CREATE' | 'UPDATE' | 'DELETE',
+    entity: string,
+    id: string,
+    uid: string,
+    data: any,
+  ) {
+    // Audit log
+    this.logger.audit(operation, entity, id, uid, data)
 
-  private extractIdFromUrl(url: string): string | null {
-    const parts = url.split('/')
-    // Look for numeric or UUID-like strings
-    for (let i = parts.length - 1; i >= 0; i--) {
-      const part = parts[i]
-      if (part && (Number.isInteger(+part) || /^[a-f0-9-]{36}$/i.test(part))) {
-        return part
-      }
-    }
-    return null
+    // Regular success log
+    const operationText = operation === 'CREATE' ? 'creado' : operation === 'UPDATE' ? 'actualizado' : 'eliminado'
+
+    this.logger.log({
+      message: `${entity.toUpperCase()} ${operationText} exitosamente con ID: ${id}`,
+      context: entity,
+    }).catch(error => {
+      // Don't let logging errors break the request flow
+      console.error('Logging error:', error)
+    })
   }
 }

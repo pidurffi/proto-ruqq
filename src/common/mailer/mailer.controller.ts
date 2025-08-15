@@ -10,11 +10,12 @@ export class EpmailerController {
   constructor(private readonly mailerService: EpmailerService) {}
 
   @Post('send')
-  create(@Body() body: SendMailDto) {
+  async create(@Body() body: SendMailDto) {
     try {
-      return this.mailerService.sendMail(body)
+      const result = await this.mailerService.sendMail(body)
+      return result
     } catch (error) {
-      return false
+      return { status: 'error', message: 'Mail sending failed' }
     }
   }
 }

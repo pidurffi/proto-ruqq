@@ -3,6 +3,7 @@ import { ConsoleLogger, ValidationPipe } from '@nestjs/common'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 
 import { AppModule } from './app.module'
+import { AuditInterceptor } from './common'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -36,6 +37,10 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   )
+
+  // Apply audit interceptor globally
+  const auditInterceptor = app.get(AuditInterceptor)
+  app.useGlobalInterceptors(auditInterceptor)
 
   const config = new DocumentBuilder()
     .setTitle('Amuillán RESTFul API')
