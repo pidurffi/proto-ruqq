@@ -4,7 +4,7 @@ import * as winston from 'winston'
 import 'winston-daily-rotate-file'
 
 import { SendMailDto } from '../mailer/sendmail.dto'
-import { EpmailerService } from '../mailer/mailer.service'
+import { MailerService } from '../mailer/mailer.service'
 
 @Injectable()
 export class WinstonLoggerService {
@@ -13,7 +13,7 @@ export class WinstonLoggerService {
 
   constructor(
     private configService: ConfigService,
-    private readonly mailerservice: EpmailerService,
+    private readonly mailerservice: MailerService,
   ) {
     this.logger = winston.createLogger({
       level: 'debug',

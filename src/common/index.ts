@@ -1,7 +1,7 @@
 export { EpExceptionError } from './dto/epErrors.dto'
 export { BaseService } from './services'
 export { WinstonLoggerService } from './services/winston-logger.service'
-export { EpmailerService } from './mailer/mailer.service'
+export { MailerService } from './mailer/mailer.service'
 export { AuditInterceptor } from './interceptors/audit.interceptor'
 export { DberrorsDto, EpGenericErrorDto, PaginationDto, SendMailDto } from './dto'
 export { baseErrors } from './constants'

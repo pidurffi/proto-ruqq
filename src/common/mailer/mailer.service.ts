@@ -6,7 +6,7 @@ import mailerconfig from '../../config/mailer.config'
 import { SendMailDto } from './sendmail.dto'
 
 @Injectable()
-export class EpmailerService {
+export class MailerService {
   private transporter: nodemailer.Transporter
 
   constructor() {

@@ -1,13 +1,13 @@
 import { Body, Controller, Post } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 
-import { EpmailerService } from './mailer.service'
+import { MailerService } from './mailer.service'
 import { SendMailDto } from './sendmail.dto'
 
 @ApiTags('Mailer')
 @Controller('mailer')
-export class EpmailerController {
-  constructor(private readonly mailerService: EpmailerService) {}
+export class MailerController {
+  constructor(private readonly mailerService: MailerService) {}
 
   @Post('send')
   async create(@Body() body: SendMailDto) {

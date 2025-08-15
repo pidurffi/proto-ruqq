@@ -5,14 +5,14 @@ import { ConsoleLogger, Module } from '@nestjs/common'
 import { PaginationDto, EpGenericErrorDto } from './'
 import { WinstonLoggerService } from './services/winston-logger.service'
 import { AuditInterceptor } from './interceptors/audit.interceptor'
-import { EpmailerController } from './mailer/mailer.controller'
-import { EpmailerService } from './mailer/mailer.service'
+import { MailerController } from './mailer/mailer.controller'
+import { MailerService } from './mailer/mailer.service'
 import { UploadsHandleService } from './uploads-handle/uploads-handle.service'
 import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
 
 @Module({
   imports: [ConfigModule],
-  controllers: [EpmailerController],
+  controllers: [MailerController],
   providers: [
     // TODO: Hacer UploadsModule ????
     UploadsHandleService,
@@ -21,7 +21,7 @@ import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
     ConsoleLogger,
     PaginationDto,
     EpGenericErrorDto,
-    EpmailerService,
+    MailerService,
     WinstonLoggerService,
     AuditInterceptor,
   ],
@@ -30,7 +30,7 @@ import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
     UploadsHandleService,
     PaginationDto,
     EpGenericErrorDto,
-    EpmailerService,
+    MailerService,
     WinstonLoggerService,
     AuditInterceptor,
   ],
