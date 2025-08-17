@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 
-import { BaseEntityService } from '../../../../common/services/base-entity.service'
+import { LoggableEntityService } from '../../../../common/services/loggable-entity.service'
 import { Template } from '../entities/template'
 import { baseErrors, WinstonLoggerService } from '../../../../common'
 import { resources } from '../../../database/constants'
@@ -9,7 +9,7 @@ import { TemplateRepository } from '../repositories/template'
 import { TemplateQueryDto, TemplateCreateDto } from '../dto'
 
 @Injectable()
-export class TemplateService extends BaseEntityService<Template> {
+export class TemplateService extends LoggableEntityService<Template> {
   private context = 'Template'
   constructor(
     @Inject(TemplateRepository)
