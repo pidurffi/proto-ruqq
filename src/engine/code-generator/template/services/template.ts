@@ -1,26 +1,21 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 
-import { LoggableEntityService } from '../../../../common/services/loggable-entity.service'
+import { BaseEntityService } from '../../../../common/services/base-entity.service'
 import { Template } from '../entities/template'
-import { baseErrors, WinstonLoggerService } from '../../../../common'
 import { resources } from '../../../database/constants'
 import { TemplateRepository } from '../repositories/template'
 import { TemplateQueryDto, TemplateCreateDto } from '../dto'
 
 @Injectable()
-export class TemplateService extends LoggableEntityService<Template> {
-  private context = 'Template'
+export class TemplateService extends BaseEntityService<Template> {
   constructor(
     @Inject(TemplateRepository)
     private readonly repository: TemplateRepository,
-
-    protected readonly logger: WinstonLoggerService,
-
     @Inject(resources.DATA_SOURCE_POSTGRES)
     private readonly dataSource: DataSource,
   ) {
-    super(logger)
+    super()
   }
 
   protected getRepository(): TemplateRepository {
@@ -30,14 +25,8 @@ export class TemplateService extends LoggableEntityService<Template> {
   async createTemplate(
     createTemplateDto: TemplateCreateDto,
     uid: string,
-  ): Promise<Template | undefined> {
-    try {
-      return await this.create({ ...createTemplateDto, uid })
-    } catch (error) {
-      await this.handleErrors(error, this.context, false, [
-        baseErrors.DUPLICATE_ENTRY,
-      ])
-    }
+  ): Promise<Template> {
+    return await this.create({ ...createTemplateDto, uid })
   }
 
   async findAllWithFilterPaginated(payload: TemplateQueryDto) {
