@@ -1,7 +1,10 @@
 // common.module.ts
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ConsoleLogger, Module } from '@nestjs/common'
+import { MailerModule } from '@nestjs-modules/mailer'
+import { ThrottlerModule } from '@nestjs/throttler'
 
+import mailerConfig from '../config/mailer.config'
 import { PaginationDto, EpGenericErrorDto } from './'
 import { WinstonLoggerService } from './services/winston-logger.service'
 import { AuditInterceptor } from './interceptors/audit.interceptor'
@@ -11,7 +14,35 @@ import { UploadsHandleService } from './uploads-handle/uploads-handle.service'
 import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
 
 @Module({
-  imports: [ConfigModule],
+  imports: [
+    ConfigModule.forFeature(mailerConfig),
+    MailerModule.forRootAsync({
+      imports: [ConfigModule.forFeature(mailerConfig)],
+      useFactory: (configService: ConfigService) => configService.get('mailer')!,
+      inject: [ConfigService],
+    }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => [
+        {
+          name: 'short',
+          ttl: 60000, // 1 minute
+          limit: 10, // max 10 requests per minute
+        },
+        {
+          name: 'medium',
+          ttl: 600000, // 10 minutes
+          limit: 100, // max 100 requests per 10 minutes
+        },
+        {
+          name: 'long',
+          ttl: 3600000, // 1 hour
+          limit: 1000, // max 1000 requests per hour
+        },
+      ],
+      inject: [ConfigService],
+    }),
+  ],
   controllers: [MailerController],
   providers: [
     // TODO: Hacer UploadsModule ????

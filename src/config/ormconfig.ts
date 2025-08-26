@@ -7,14 +7,15 @@ import { join } from 'path'
 const envPath = join(__dirname, '../..', '.env')
 dotenv.config({ path: envPath })
 
+
 const config: DataSourceOptions[] = [
   {
     type: 'postgres',
-    host: process.env.PG_DB_HOST,
-    port: +process.env.PG_DB_PORT!,
-    database: process.env.PG_DB_NAME,
-    username: process.env.PG_DB_USERNAME,
-    password: process.env.PG_DB_PASSWORD,
+    host: String(process.env.PG_DB_HOST),
+    port: parseInt(process.env.PG_DB_PORT || '5432'),
+    database: String(process.env.PG_DB_NAME),
+    username: String(process.env.PG_DB_USERNAME),
+    password: String(process.env.PG_DB_PASSWORD),
     entities: [__dirname + '/../**/*.entity{.ts,.js}'], //esto es para interprete de donde levantar la info de entidades para armar las migrations
     synchronize: process.env.PG_DB_SYNCHRONIZE == 'true',
     migrations: [__dirname + '/../engine/migrations/**/*{.ts,.js}'], //esto es para lea de esta carpeta (no es para guarde)

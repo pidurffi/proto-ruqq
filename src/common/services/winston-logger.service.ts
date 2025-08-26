@@ -174,9 +174,9 @@ export class WinstonLoggerService {
   private async sendMail(message: any, typeLog: string): Promise<void> {
     const entorno = this.configService.get<string>('ENVIRONMENT')
     const mailinfo: SendMailDto = {
-      message: String(message),
+      text: String(message),
       subject: `[${entorno}][${typeLog}] ${Date()}`,
-      sendTo: this.configService.get<string>(`MAIL_${typeLog}`) || '',
+      to: this.configService.get<string>(`MAIL_${typeLog}`) || '',
       replyTo: this.configService.get<string>(`MAIL_${typeLog}`) || '',
     }
     try {
