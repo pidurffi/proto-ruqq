@@ -1,19 +1,22 @@
 # compiled output
 /dist
 /node_modules
+/postgres
+/static/uploads/
 
 .env
 docker-compose.yml
+CLAUDE.md
 
-# Ignorar todos los archivos en la carpeta static y sus subcarpetas
-/static/**/*
-/static/**/*.*
+# # Ignorar todos los archivos en la carpeta static y sus subcarpetas
+# /static/**/*
+# /static/**/*.*
 
-# No ignorar las carpetas en la estructura
-!static/
-!static/**/
-# No ignorar archivos .gitkeep
-!/static/**/*.gitkeep
+# # No ignorar las carpetas en la estructura
+# !static/
+# !static/**/
+# # No ignorar archivos .gitkeep
+# !/static/**/*.gitkeep
 
 
 # Logs
