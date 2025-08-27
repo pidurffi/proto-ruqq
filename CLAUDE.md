@@ -1,1 +1,0 @@
-- Ignorar la carpeta: src/engine/code-generator de cualquier análisis y modificaciones EXCEPTO que especificamente te pida ayuda con el generador de código
