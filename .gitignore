@@ -4,6 +4,7 @@
 /postgres
 /static/
 /claude-docs/
+
 .env
 docker-compose.yml
 CLAUDE.md
