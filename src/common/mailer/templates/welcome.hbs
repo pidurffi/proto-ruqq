@@ -56,7 +56,9 @@
         <p><strong>Account Details:</strong></p>
         <ul>
             <li><strong>Email:</strong> {{email}}</li>
+            {{#if registrationDate}}
             <li><strong>Registration Date:</strong> {{registrationDate}}</li>
+            {{/if}}
             {{#if role}}
             <li><strong>Role:</strong> {{role}}</li>
             {{/if}}
@@ -76,7 +78,7 @@
     </div>
     
     <div class="footer">
-        <p>&copy; {{year}} {{company}}. All rights reserved.</p>
+        <p>&copy; {{#if year}}{{year}}{{else}}{{currentYear}}{{/if}} {{company}}. All rights reserved.</p>
         {{#if unsubscribeLink}}
         <p><a href="{{unsubscribeLink}}">Unsubscribe</a> from these emails</p>
         {{/if}}

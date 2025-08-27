@@ -18,7 +18,15 @@ import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
     ConfigModule.forFeature(mailerConfig),
     MailerModule.forRootAsync({
       imports: [ConfigModule.forFeature(mailerConfig)],
-      useFactory: (configService: ConfigService) => configService.get('mailer')!,
+      useFactory: (configService: ConfigService) => {
+        const config = configService.get('mailer')
+        console.log('Mailer config debug:', {
+          host: config?.transport?.host,
+          port: config?.transport?.port,
+          user: config?.transport?.auth?.user
+        })
+        return config!
+      },
       inject: [ConfigService],
     }),
     ThrottlerModule.forRootAsync({

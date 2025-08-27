@@ -10,38 +10,43 @@ export interface ExtendedMailerOptions extends MailerOptions {
 
 export default registerAs('mailer', (): ExtendedMailerOptions => {
   const isProduction = process.env.NODE_ENV === 'production'
-  const isDevelopment = process.env.ENVIRONMENT === 'local' || process.env.NODE_ENV === 'development'
   
-  // Only validate required variables in production
-  if (isProduction) {
-    const requiredVars = ['MAILER_HOST', 'MAILER_USER', 'MAILER_PASS']
-    const missingVars = requiredVars.filter(varName => !process.env[varName])
-    
-    if (missingVars.length > 0) {
-      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`)
+  // Always try to use real environment variables first
+  const mailerHost = process.env.MAILER_HOST
+  const mailerUser = process.env.MAILER_USER
+  const mailerPass = process.env.MAILER_PASS
+
+  // Only provide defaults if no environment variables are set AND it's development
+  const finalHost = mailerHost || (isProduction ? undefined : 'localhost')
+  const finalUser = mailerUser || (isProduction ? undefined : 'test@example.com') 
+  const finalPass = mailerPass || (isProduction ? undefined : 'test-password')
+
+  // Validate required variables in production or when no defaults are used
+  if (isProduction || (mailerHost && mailerUser && mailerPass)) {
+    if (!finalHost || !finalUser || !finalPass) {
+      const missing = []
+      if (!finalHost) missing.push('MAILER_HOST')
+      if (!finalUser) missing.push('MAILER_USER')  
+      if (!finalPass) missing.push('MAILER_PASS')
+      throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
     }
   }
 
-  // Provide default values for development  
-  const mailerHost = process.env.MAILER_HOST || 'localhost'
-  const mailerUser = process.env.MAILER_USER || 'test@example.com' 
-  const mailerPass = process.env.MAILER_PASS || 'test-password'
-
-  if (!mailerHost || !mailerUser || !mailerPass) {
+  if (!finalHost || !finalUser || !finalPass) {
     console.warn('⚠️  Mailer configuration incomplete. Email functionality may not work properly.')
-    console.warn('Debug - mailerHost:', mailerHost)
-    console.warn('Debug - mailerUser:', mailerUser)
-    console.warn('Debug - mailerPass:', mailerPass ? '***' : 'undefined')
+    console.warn('Debug - finalHost:', finalHost)
+    console.warn('Debug - finalUser:', finalUser)
+    console.warn('Debug - finalPass:', finalPass ? '***' : 'undefined')
   }
 
   return {
     transport: {
-      host: mailerHost,
+      host: finalHost,
       port: parseInt(process.env.MAILER_PORT || '587', 10),
       secure: process.env.MAILER_SECURE === 'true',
       auth: {
-        user: mailerUser,
-        pass: mailerPass,
+        user: finalUser,
+        pass: finalPass,
       },
       debug: !isProduction,
       logger: !isProduction,
@@ -50,13 +55,18 @@ export default registerAs('mailer', (): ExtendedMailerOptions => {
       maxMessages: parseInt(process.env.MAILER_MAX_MESSAGES || '100', 10),
     },
     defaults: {
-      from: process.env.MAILER_FROM || mailerUser,
+      from: process.env.MAILER_FROM || finalUser,
     },
     template: {
       dir: path.join(process.cwd(), 'src/common/mailer/templates'),
       adapter: new HandlebarsAdapter(),
       options: {
-        strict: true,
+        strict: false,
+        helpers: {
+          currentYear: () => new Date().getFullYear(),
+          currentDate: () => new Date().toLocaleDateString('es-ES'),
+          currentDateTime: () => new Date().toLocaleString('es-ES')
+        }
       },
     },
     retries: parseInt(process.env.MAILER_RETRIES || '3', 10),

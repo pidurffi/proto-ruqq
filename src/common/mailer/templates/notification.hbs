@@ -106,8 +106,10 @@
     </div>
     
     <div class="footer">
-        <p>&copy; {{year}} {{company}}. All rights reserved.</p>
+        <p>&copy; {{#if year}}{{year}}{{else}}{{currentYear}}{{/if}} {{company}}. All rights reserved.</p>
+        {{#if timestamp}}
         <p>Sent on {{timestamp}}</p>
+        {{/if}}
         {{#if unsubscribeLink}}
         <p><a href="{{unsubscribeLink}}">Unsubscribe</a> from these notifications</p>
         {{/if}}
