@@ -2,8 +2,8 @@
 /dist
 /node_modules
 /postgres
-/static/uploads/
-
+/static/
+/claude-docs/
 .env
 docker-compose.yml
 CLAUDE.md
