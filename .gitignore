@@ -3,11 +3,9 @@
 /node_modules
 /postgres
 /static/
-/claude-docs/
 
 .env
 docker-compose.yml
-CLAUDE.md
 
 # # Ignorar todos los archivos en la carpeta static y sus subcarpetas
 # /static/**/*

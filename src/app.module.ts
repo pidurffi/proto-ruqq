@@ -10,6 +10,8 @@ import { CommonModule } from './common/common.module'
 import { AuthModule } from './engine/auth/auth.module'
 import { DatabaseModule } from './engine/database/database.module'
 
+import { RoomTypeModule } from './resources/room-type/room-type.module';
+import { BaseRatePeriodModule } from './resources/base-rate-period/base-rate-period.module';
 //ImportTemplateModule
 //NO BORRAR LA LINEA DE ARRIBA
 
@@ -54,6 +56,8 @@ const loadJsonConfig = () => {
     AuthModule,
     CommonModule,
 
+    RoomTypeModule,
+    BaseRatePeriodModule,
     //TemplateModule
     //NO BORRAR LA LINEA DE ARRIBA
   ],

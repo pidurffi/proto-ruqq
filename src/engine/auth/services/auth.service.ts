@@ -74,7 +74,7 @@ export class AuthService extends BaseService {
     if (!user) {
       await this.logger.error({
         message: `Usuario no tiene permisos`,
-        sendEmail: true,
+        sendEmail: false,
         stack: UnauthorizedException.name,
         context: this.context,
       })
