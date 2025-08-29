@@ -5,8 +5,8 @@ import { RoomType } from '../../room-type/entities/room-type.entity'
 
 @Entity({ name: 'base_rate_period' })
 export class BaseRatePeriod extends EntityBase {
-  @Column({ type: 'int', name: 'room_type_id', nullable: false })
-  roomTypeId: number
+  @Column({ type: 'uuid', name: 'room_type_id', nullable: false })
+  roomTypeId: string
 
   @Column({ type: 'date', name: 'start_date', nullable: false })
   startDate: Date

@@ -8,11 +8,14 @@ Este es "Ruqq" - Un sitema de generador de presupuestos y reservas para hoteles,
 - **SOLID Principles**: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion
 - **Domain-Driven Design**: Entities, Value Objects, Aggregates, Domain Services, Repositories
 - **Buenas Prácticas**: Siempre programar usando buenas prácticas sin harcodeos no parches
+- **Documentación**: Todo código complejo debe estar documentado con comentarios explicativos
 - **TypeScript**: Modo estricto habilitado, tipos explícitos preferidos
 - **Async**: Usar consistentemente el patrón async/await
 
 ### **Patrones TypeORM (Actuales)**
 - **Entidad Base**: Todas las entidades extienden `EntityBase` con `id`, `uid`, soft delete
+- **IDs de Entidades**: Todas las entidades usan UUID (string) como clave primaria, NO integers
+- **Relaciones**: Siempre usar UUID strings para foreign keys, NO integers
 - **Estrategia de Nomenclatura**: `SnakeNamingStrategy` para consistencia en base de datos
 - **Repositorios**: Accedidos vía método abstracto `BaseEntityService.getRepository()`
 - **Relaciones**: Decoradores TypeORM estándar (`@OneToMany`, `@ManyToOne`)

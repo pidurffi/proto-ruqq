@@ -4,11 +4,10 @@ import { IsNotEmpty, IsNumber, IsDateString, IsPositive } from 'class-validator'
 export class BaseRatePeriodCreateDto {
   @ApiProperty({
     description: 'ID del tipo de habitación',
-    example: 1
+    example: '8070914c-6e11-48e5-bca6-763b6ab7fcf2'
   })
-  @IsNumber()
   @IsNotEmpty()
-  roomTypeId: number
+  roomTypeId: string
 
   @ApiProperty({
     description: 'Fecha de inicio del período',
