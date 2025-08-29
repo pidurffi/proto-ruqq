@@ -37,12 +37,12 @@ export class SuperAdminSeeder {
 
   /**
    * Solicita contraseña por consola
-   * 
+   *
    * SEGURIDAD:
    * - No queda guardada en logs o archivos
    * - Valida longitud mínima
    * - Solo se muestra en consola durante el input
-   * 
+   *
    * @returns Promise<string> Contraseña ingresada
    */
   private async promptPassword(): Promise<string> {
@@ -51,20 +51,20 @@ export class SuperAdminSeeder {
       output: process.stdout,
     })
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       console.log('   🔐 Configuración de contraseña para SuperAdmin:')
       console.log('   💡 Mínimo 8 caracteres, se recomienda usar caracteres especiales')
       console.log('   ⚠️  La contraseña será visible durante el tipeo (por compatibilidad)')
-      
-      rl.question('   Password: ', (password) => {
+
+      rl.question('   Password: ', password => {
         console.log('') // Línea en blanco para limpiar
-        
+
         if (password.length < 8) {
           console.log('   ❌ La contraseña debe tener al menos 8 caracteres')
           rl.close()
           process.exit(1)
         }
-        
+
         rl.close()
         resolve(password)
       })
@@ -107,7 +107,7 @@ export class SuperAdminSeeder {
     // Solicitar contraseña de forma segura por consola
     const password = await this.promptPassword()
     console.log('   ✅ Contraseña ingresada correctamente')
-    
+
     // Generar hash seguro de la contraseña
     console.log('   🔒 Generando hash seguro...')
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -118,7 +118,7 @@ export class SuperAdminSeeder {
       password: hashedPassword,
       fullName: 'Super Administrador',
       isActive: true,
-      roles: ['super-admin'], // Rol especial para acceso completo
+      roles: ['SUPER_ADMIN'], // Rol especial para acceso completo
       uid: '00000000-0000-0000-0000-000000000000', // UID del sistema
     })
 
