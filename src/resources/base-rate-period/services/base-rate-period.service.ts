@@ -5,7 +5,7 @@ import { BaseEntityService } from '../../../common/services/base-entity.service'
 import { BaseRatePeriod } from '../entities/base-rate-period.entity'
 import { resources } from '../../../engine/database/constants'
 import { BaseRatePeriodRepository } from '../repositories/base-rate-period.repository'
-import { BaseRatePeriodQueryDto, BaseRatePeriodCreateDto, BaseRatePeriodBudgetDto, BudgetResponseDto, BudgetSegmentDto } from '../dto'
+import { BaseRatePeriodQueryDto, BaseRatePeriodCreateDto, BaseRatePeriodBudgetDto, BudgetResponseDto, BudgetSegmentDto, RoomTypeBudgetDto } from '../dto'
 
 @Injectable()
 export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
@@ -85,20 +85,18 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
 
   /**
    * Calcula el presupuesto para una estadía basado en los períodos de tarifa.
-   * Utiliza la estrategia de split para calcular exactamente el precio por cada noche
-   * según los períodos de tarifa configurados.
+   * Filtra por capacidad máxima y devuelve todos los tipos de habitación disponibles.
    * 
-   * Ejemplo: Estadía del 10/10 al 18/10 (8 noches)
-   * - Período 10-11/10 a $200: 2 noches × $200 = $400
-   * - Período 12-15/10 a $333: 4 noches × $333 = $1,332  
-   * - Período 16-17/10 a $200: 2 noches × $200 = $400
-   * - Total: $2,132
+   * Flujo:
+   * 1. Filtra tipos de habitación por max_capacity >= pax
+   * 2. Para cada tipo válido, calcula el precio usando la estrategia de split
+   * 3. Retorna array con todos los tipos disponibles y sus precios
    * 
-   * @param budgetDto Datos de la consulta (roomTypeId, checkIn, checkOut)
-   * @returns Presupuesto detallado con desglose por segmentos
+   * @param budgetDto Datos de la consulta (pax, checkIn, checkOut)
+   * @returns Presupuesto con todos los tipos de habitación disponibles
    */
   async calculateBudget(budgetDto: BaseRatePeriodBudgetDto): Promise<BudgetResponseDto> {
-    const { roomTypeId, checkInDate, checkOutDate } = budgetDto
+    const { pax, checkInDate, checkOutDate } = budgetDto
     const checkIn = checkInDate.toString()
     const checkOut = checkOutDate.toString()
 
@@ -107,60 +105,91 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
       throw new BadRequestException('La fecha de check-in debe ser anterior a la fecha de check-out')
     }
 
-    // 1. Buscar todos los períodos relevantes que se cruzan con la estadía
-    // Condición: period_start < checkout AND period_end >= checkin
-    const relevantPeriods = await this.getRepository()
-      .createQueryBuilder('brp')
-      .where('brp.roomTypeId = :roomTypeId', { roomTypeId })
-      .andWhere('brp.startDate < :checkOut', { checkOut })
-      .andWhere('brp.endDate >= :checkIn', { checkIn })
-      .orderBy('brp.startDate', 'ASC')
+    // 1. Filtrar tipos de habitación por capacidad máxima
+    const validRoomTypes = await this.dataSource
+      .getRepository('RoomType')
+      .createQueryBuilder('rt')
+      .where('rt.maxCapacity >= :pax', { pax })
+      .orderBy('rt.maxCapacity', 'ASC')
       .getMany()
 
-    if (relevantPeriods.length === 0) {
-      throw new BadRequestException('No se encontraron tarifas configuradas para el tipo de habitación y fechas seleccionadas')
+    if (validRoomTypes.length === 0) {
+      throw new BadRequestException(`No se encontraron tipos de habitación con capacidad para ${pax} huéspedes`)
     }
 
-    // 2. Calcular segmentos y costos
-    const segments: BudgetSegmentDto[] = []
-    let totalPrice = 0
-    let totalNights = 0
+    // 2. Iterar por cada tipo de habitación válido y calcular su presupuesto
+    const availableRoomTypes: RoomTypeBudgetDto[] = []
 
-    for (const period of relevantPeriods) {
-      const periodStart = period.startDate.toString()
-      const periodEnd = period.endDate.toString()
+    for (const roomType of validRoomTypes) {
+      // Buscar períodos de tarifa para este tipo de habitación
+      const relevantPeriods = await this.getRepository()
+        .createQueryBuilder('brp')
+        .where('brp.roomTypeId = :roomTypeId', { roomTypeId: roomType.id })
+        .andWhere('brp.startDate < :checkOut', { checkOut })
+        .andWhere('brp.endDate >= :checkIn', { checkIn })
+        .orderBy('brp.startDate', 'ASC')
+        .getMany()
 
-      // Calcular las fechas efectivas del segmento dentro de la estadía
-      const segmentStart = checkIn > periodStart ? checkIn : periodStart
-      const segmentEnd = checkOut <= periodEnd ? 
-        this.subtractDays(checkOut, 1) : // Check-out no cuenta como noche
-        periodEnd
+      // Si no hay tarifas configuradas para este tipo, saltarlo
+      if (relevantPeriods.length === 0) {
+        continue
+      }
 
-      // Solo procesar si hay noches en este segmento
-      if (segmentStart <= segmentEnd) {
-        const nights = this.calculateNightsBetween(segmentStart, segmentEnd)
-        const subtotal = nights * Number(period.price)
+      // Calcular segmentos y costos para este tipo de habitación
+      const segments: BudgetSegmentDto[] = []
+      let totalPrice = 0
+      let totalNights = 0
 
-        segments.push({
-          startDate: segmentStart,
-          endDate: segmentEnd,
-          pricePerNight: Number(period.price),
-          nights,
-          subtotal
+      for (const period of relevantPeriods) {
+        const periodStart = period.startDate.toString()
+        const periodEnd = period.endDate.toString()
+
+        // Calcular las fechas efectivas del segmento dentro de la estadía
+        const segmentStart = checkIn > periodStart ? checkIn : periodStart
+        const segmentEnd = checkOut <= periodEnd ? 
+          this.subtractDays(checkOut, 1) : // Check-out no cuenta como noche
+          periodEnd
+
+        // Solo procesar si hay noches en este segmento
+        if (segmentStart <= segmentEnd) {
+          const nights = this.calculateNightsBetween(segmentStart, segmentEnd)
+          const subtotal = nights * Number(period.price)
+
+          segments.push({
+            startDate: segmentStart,
+            endDate: segmentEnd,
+            pricePerNight: Number(period.price),
+            nights,
+            subtotal
+          })
+
+          totalPrice += subtotal
+          totalNights += nights
+        }
+      }
+
+      // Agregar este tipo de habitación al resultado si tiene tarifas
+      if (segments.length > 0) {
+        availableRoomTypes.push({
+          roomType: {
+            id: roomType.id,
+            name: roomType.name,
+            code: roomType.code,
+            baseCapacity: roomType.baseCapacity,
+            maxCapacity: roomType.maxCapacity
+          },
+          totalNights,
+          segments,
+          totalPrice: Math.round(totalPrice * 100) / 100
         })
-
-        totalPrice += subtotal
-        totalNights += nights
       }
     }
 
     return {
-      roomTypeId,
+      pax,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      totalNights,
-      segments,
-      totalPrice: Math.round(totalPrice * 100) / 100 // Redondear a 2 decimales
+      availableRoomTypes
     }
   }
 

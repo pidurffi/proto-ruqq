@@ -3,11 +3,11 @@ import { IsNotEmpty, IsDateString } from 'class-validator'
 
 export class BaseRatePeriodBudgetDto {
   @ApiProperty({
-    description: 'ID del tipo de habitación',
-    example: '8070914c-6e11-48e5-bca6-763b6ab7fcf2'
+    description: 'Número de huéspedes',
+    example: 2
   })
   @IsNotEmpty()
-  roomTypeId: string
+  pax: number
 
   @ApiProperty({
     description: 'Fecha de check-in',
@@ -58,24 +58,17 @@ export class BudgetSegmentDto {
   subtotal: number
 }
 
-export class BudgetResponseDto {
+export class RoomTypeBudgetDto {
   @ApiProperty({
-    description: 'ID del tipo de habitación',
-    example: '8070914c-6e11-48e5-bca6-763b6ab7fcf2'
+    description: 'Información del tipo de habitación'
   })
-  roomTypeId: string
-
-  @ApiProperty({
-    description: 'Fecha de check-in',
-    example: '2024-10-10'
-  })
-  checkInDate: string
-
-  @ApiProperty({
-    description: 'Fecha de check-out',
-    example: '2024-10-18'
-  })
-  checkOutDate: string
+  roomType: {
+    id: string
+    name: string
+    code: string
+    baseCapacity: number
+    maxCapacity: number
+  }
 
   @ApiProperty({
     description: 'Total de noches',
@@ -94,4 +87,30 @@ export class BudgetResponseDto {
     example: 2132.00
   })
   totalPrice: number
+}
+
+export class BudgetResponseDto {
+  @ApiProperty({
+    description: 'Número de huéspedes solicitado',
+    example: 2
+  })
+  pax: number
+
+  @ApiProperty({
+    description: 'Fecha de check-in',
+    example: '2024-10-10'
+  })
+  checkInDate: string
+
+  @ApiProperty({
+    description: 'Fecha de check-out',
+    example: '2024-10-18'
+  })
+  checkOutDate: string
+
+  @ApiProperty({
+    description: 'Array de tipos de habitación disponibles con sus precios',
+    type: [RoomTypeBudgetDto]
+  })
+  availableRoomTypes: RoomTypeBudgetDto[]
 }

@@ -26,6 +26,22 @@ export class RoomType extends EntityBase {
   })
   totalInventory: number
 
+  @Column({ 
+    type: 'int',
+    name: 'base_capacity',
+    nullable: false,
+    comment: 'Ocupación incluida en el precio estándar'
+  })
+  baseCapacity: number
+
+  @Column({ 
+    type: 'int',
+    name: 'max_capacity',
+    nullable: false,
+    comment: 'Límite máximo de personas'
+  })
+  maxCapacity: number
+
   @OneToMany(() => BaseRatePeriod, baseRatePeriod => baseRatePeriod.roomType)
   baseRatePeriods: BaseRatePeriod[]
 }
