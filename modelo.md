@@ -5,7 +5,7 @@ Este documento describe la arquitectura final para la creación de un motor de c
 
 Esta estructura de base de datos es el pilar de todo el sistema. Es robusta, normalizada y está diseñada para escalar.
 
-Tabla room_types (Tipos de Unidad):
+Tabla room_type (Tipo de Unidad):
 El inventario físico y sus capacidades.
 
 id: uuid, pk
