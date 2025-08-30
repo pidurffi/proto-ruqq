@@ -1,17 +1,20 @@
 import { Inject, Injectable } from '@nestjs/common'
 //import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, DataSource } from 'typeorm'
 
 import { BaseRatePeriod } from '../entities/base-rate-period.entity'
 import { repositories } from '../constants'
 import { BaseRatePeriodQueryDto } from '../dto'
 import { PaginationDto } from '../../../common/dto/pagination.dto'
+import { resources } from '../../../engine/database/constants'
 
 @Injectable()
 export class BaseRatePeriodRepository extends Repository<BaseRatePeriod> {
   constructor(
     @Inject(repositories.BASE_RATE_PERIOD_REPOSITORY)
     private readonly _: Repository<BaseRatePeriod>,
+    @Inject(resources.DATA_SOURCE_POSTGRES)
+    private readonly dataSource: DataSource,
   ) {
     super(_.target, _.manager, _.queryRunner)
   }
@@ -45,9 +48,46 @@ export class BaseRatePeriodRepository extends Repository<BaseRatePeriod> {
     })
   }
 
-  /* 
-  ejemplo
-  public consultaPrueba() {
-    return this.createQueryBuilder('bateria').getMany()
-  } */
+  /**
+   * Busca tipos de habitación válidos por capacidad máxima
+   * @param pax Número de huéspedes
+   * @returns Array de tipos de habitación válidos
+   */
+  async findValidRoomTypes(pax: number) {
+    return await this.dataSource
+      .getRepository('RoomType')
+      .createQueryBuilder('rt')
+      .where('rt.maxCapacity >= :pax', { pax })
+      .orderBy('rt.maxCapacity', 'ASC')
+      .getMany()
+  }
+
+  /**
+   * Busca períodos de tarifa relevantes para un tipo de habitación y rango de fechas
+   * @param roomTypeId ID del tipo de habitación
+   * @param checkIn Fecha de check-in
+   * @param checkOut Fecha de check-out
+   * @returns Array de períodos de tarifa relevantes
+   */
+  async findRelevantPeriods(roomTypeId: string, checkIn: string, checkOut: string) {
+    return await this.createQueryBuilder('brp')
+      .where('brp.roomTypeId = :roomTypeId', { roomTypeId })
+      .andWhere('brp.startDate < :checkOut', { checkOut })
+      .andWhere('brp.endDate >= :checkIn', { checkIn })
+      .orderBy('brp.startDate', 'ASC')
+      .getMany()
+  }
+
+  /**
+   * Busca modificadores de ocupación para un período de tarifa específico
+   * @param baseRatePeriodId ID del período de tarifa base
+   * @returns Array de modificadores de ocupación
+   */
+  async findOccupancyModifiers(baseRatePeriodId: string) {
+    return await this.dataSource
+      .getRepository('OccupancyRateModifiers')
+      .createQueryBuilder('orm')
+      .where('orm.baseRatePeriodId = :baseRatePeriodId', { baseRatePeriodId })
+      .getMany()
+  }
 }

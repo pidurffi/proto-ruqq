@@ -106,12 +106,7 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
     }
 
     // 1. Filtrar tipos de habitación por capacidad máxima
-    const validRoomTypes = await this.dataSource
-      .getRepository('RoomType')
-      .createQueryBuilder('rt')
-      .where('rt.maxCapacity >= :pax', { pax })
-      .orderBy('rt.maxCapacity', 'ASC')
-      .getMany()
+    const validRoomTypes = await this.getRepository().findValidRoomTypes(pax)
 
     if (validRoomTypes.length === 0) {
       throw new BadRequestException(`No se encontraron tipos de habitación con capacidad para ${pax} huéspedes`)
@@ -122,13 +117,7 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
 
     for (const roomType of validRoomTypes) {
       // Buscar períodos de tarifa para este tipo de habitación
-      const relevantPeriods = await this.getRepository()
-        .createQueryBuilder('brp')
-        .where('brp.roomTypeId = :roomTypeId', { roomTypeId: roomType.id })
-        .andWhere('brp.startDate < :checkOut', { checkOut })
-        .andWhere('brp.endDate >= :checkIn', { checkIn })
-        .orderBy('brp.startDate', 'ASC')
-        .getMany()
+      const relevantPeriods = await this.getRepository().findRelevantPeriods(roomType.id, checkIn, checkOut)
 
       // Si no hay tarifas configuradas para este tipo, saltarlo
       if (relevantPeriods.length === 0) {
@@ -158,7 +147,7 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
           // Aplicar modificadores por ocupación si hay pasajeros extra
           if (pax > roomType.baseCapacity) {
             const extraPax = pax - roomType.baseCapacity
-            const modifiers = await this.getOccupancyModifiers(period.id)
+            const modifiers = await this.getRepository().findOccupancyModifiers(period.id)
             
             for (const modifier of modifiers) {
               if (modifier.modifierType === 'fixed') {
@@ -212,18 +201,6 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
     }
   }
 
-  /**
-   * Busca los modificadores de ocupación para un período de tarifa específico
-   * @param baseRatePeriodId ID del período de tarifa base
-   * @returns Array de modificadores de ocupación
-   */
-  private async getOccupancyModifiers(baseRatePeriodId: string) {
-    return await this.dataSource
-      .getRepository('OccupancyRateModifiers')
-      .createQueryBuilder('orm')
-      .where('orm.baseRatePeriodId = :baseRatePeriodId', { baseRatePeriodId })
-      .getMany()
-  }
 
   /**
    * Calcula el número de noches entre dos fechas (inclusive en ambos extremos)
