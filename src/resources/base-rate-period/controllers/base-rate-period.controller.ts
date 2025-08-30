@@ -27,7 +27,7 @@ import {
 import { AuthGuard } from '@nestjs/passport'
 
 import { BaseRatePeriodService } from '../services/base-rate-period.service'
-import { BaseRatePeriodQueryDto, BaseRatePeriodUpdateDto, BaseRatePeriodCreateDto, BaseRatePeriodBudgetDto, BudgetResponseDto } from '../dto'
+import { BaseRatePeriodQueryDto, BaseRatePeriodUpdateDto, BaseRatePeriodCreateDto } from '../dto'
 import { BaseRatePeriod } from '../entities/base-rate-period.entity'
 import { ValidRoles } from '../../../engine/auth/interfaces/'
 import { GetUser, User, UserRoleGuard } from '../../../engine/auth/'
@@ -128,21 +128,4 @@ export class BaseRatePeriodController extends BaseController<BaseRatePeriod> {
     await this.getService().updateById(id, entity)
   }
 
-  @Post('/budget')
-  @ApiBody({ type: BaseRatePeriodBudgetDto, required: true })
-  @ApiOkResponse({ 
-    type: BudgetResponseDto, 
-    description: 'Presupuesto calculado exitosamente' 
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Calculate budget for stay',
-  })
-  @ApiForbiddenResponse({ description: 'Forbidden.' })
-  @ApiBadRequestResponse({ description: 'Bad request.' })
-  @RoleProtected(ValidRoles.SUPER_ADMIN)
-  @UseGuards(AuthGuard(), UserRoleGuard)
-  async calculateBudget(@Body() budgetDto: BaseRatePeriodBudgetDto): Promise<BudgetResponseDto> {
-    return this.getService().calculateBudget(budgetDto)
-  }
 }

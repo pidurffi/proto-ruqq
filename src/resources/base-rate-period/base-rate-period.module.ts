@@ -11,8 +11,8 @@ import { BaseRatePeriodProviders } from './providers/base-rate-period.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...BaseRatePeriodProviders, BaseRatePeriodRepository, BaseRatePeriodService, BaseRatePeriodRepository],
+  providers: [...BaseRatePeriodProviders, BaseRatePeriodRepository, BaseRatePeriodService],
   controllers: [BaseRatePeriodController],
-  exports: [BaseRatePeriodService],
+  exports: [BaseRatePeriodService, BaseRatePeriodRepository],
 })
 export class BaseRatePeriodModule {}

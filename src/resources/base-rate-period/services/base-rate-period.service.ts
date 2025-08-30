@@ -5,8 +5,20 @@ import { BaseEntityService } from '../../../common/services/base-entity.service'
 import { BaseRatePeriod } from '../entities/base-rate-period.entity'
 import { resources } from '../../../engine/database/constants'
 import { BaseRatePeriodRepository } from '../repositories/base-rate-period.repository'
-import { BaseRatePeriodQueryDto, BaseRatePeriodCreateDto, BaseRatePeriodBudgetDto, BudgetResponseDto, BudgetSegmentDto, RoomTypeBudgetDto } from '../dto'
+import { BaseRatePeriodQueryDto, BaseRatePeriodCreateDto } from '../dto'
 
+/**
+ * BaseRatePeriodService - Servicio CRUD para períodos de tarifa base
+ * 
+ * RESPONSABILIDAD ÚNICA (SRP):
+ * - Se encarga únicamente de operaciones CRUD y la estrategia de "split"
+ * - NO calcula precios (esa es responsabilidad de QuotesService)
+ * - NO maneja lógica de dominio de cotización de precios
+ * 
+ * STRATEGY PATTERN:
+ * - Implementa la estrategia de "split" para evitar conflictos de datos
+ * - Mantiene integridad referencial en períodos de tarifas solapados
+ */
 @Injectable()
 export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
   /**
@@ -32,6 +44,7 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
     date.setUTCDate(date.getUTCDate() - days)
     return date.toISOString().split('T')[0]
   }
+  
   constructor(
     @Inject(BaseRatePeriodRepository)
     private readonly repository: BaseRatePeriodRepository,
@@ -48,14 +61,18 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
   /**
    * Crea un nuevo período de tarifa base usando la estrategia de "split".
    * Si existe un período solapado con diferente precio, divide los períodos existentes
-   * para mantener la integridad de los datos sin solapamientos.
+   * para mantener la consistencia de datos sin conflictos.
    * 
-   * @param createBaseRatePeriodDto Datos del nuevo período de tarifa
-   * @param uid ID del usuario que crea el registro
-   * @returns Array de períodos de tarifa resultantes después del split
+   * STRATEGY PATTERN:
+   * - Implementa la estrategia de división para evitar solapamientos
+   * - Utiliza transacciones para garantizar atomicidad
+   * 
+   * @param createDto - Los datos para crear el período
+   * @param uid - ID del usuario que crea el registro
+   * @returns Array de períodos resultantes después del split
    */
   async createBaseRatePeriod(
-    createBaseRatePeriodDto: BaseRatePeriodCreateDto,
+    createDto: BaseRatePeriodCreateDto,
     uid: string,
   ): Promise<BaseRatePeriod[]> {
     const queryRunner = this.dataSource.createQueryRunner()
@@ -64,11 +81,10 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
 
     try {
       const result = await this.splitRateForPeriod(
-        createBaseRatePeriodDto,
+        createDto,
         uid,
-        queryRunner
+        queryRunner,
       )
-      
       await queryRunner.commitTransaction()
       return result
     } catch (error) {
@@ -81,139 +97,6 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
 
   async findAllWithFilterPaginated(payload: BaseRatePeriodQueryDto) {
     return this.getRepository().findByFiltersPaginated(payload)
-  }
-
-  /**
-   * Calcula el presupuesto para una estadía basado en los períodos de tarifa.
-   * Filtra por capacidad máxima y devuelve todos los tipos de habitación disponibles.
-   * 
-   * Flujo:
-   * 1. Filtra tipos de habitación por max_capacity >= pax
-   * 2. Para cada tipo válido, calcula el precio usando la estrategia de split
-   * 3. Retorna array con todos los tipos disponibles y sus precios
-   * 
-   * @param budgetDto Datos de la consulta (pax, checkIn, checkOut)
-   * @returns Presupuesto con todos los tipos de habitación disponibles
-   */
-  async calculateBudget(budgetDto: BaseRatePeriodBudgetDto): Promise<BudgetResponseDto> {
-    const { pax, checkInDate, checkOutDate } = budgetDto
-    const checkIn = checkInDate.toString()
-    const checkOut = checkOutDate.toString()
-
-    // Validación básica de fechas
-    if (checkIn >= checkOut) {
-      throw new BadRequestException('La fecha de check-in debe ser anterior a la fecha de check-out')
-    }
-
-    // 1. Filtrar tipos de habitación por capacidad máxima
-    const validRoomTypes = await this.getRepository().findValidRoomTypes(pax)
-
-    if (validRoomTypes.length === 0) {
-      throw new BadRequestException(`No se encontraron tipos de habitación con capacidad para ${pax} huéspedes`)
-    }
-
-    // 2. Iterar por cada tipo de habitación válido y calcular su presupuesto
-    const availableRoomTypes: RoomTypeBudgetDto[] = []
-
-    for (const roomType of validRoomTypes) {
-      // Buscar períodos de tarifa para este tipo de habitación
-      const relevantPeriods = await this.getRepository().findRelevantPeriods(roomType.id, checkIn, checkOut)
-
-      // Si no hay tarifas configuradas para este tipo, saltarlo
-      if (relevantPeriods.length === 0) {
-        continue
-      }
-
-      // Calcular segmentos y costos para este tipo de habitación
-      const segments: BudgetSegmentDto[] = []
-      let totalPrice = 0
-      let totalNights = 0
-
-      for (const period of relevantPeriods) {
-        const periodStart = period.startDate.toString()
-        const periodEnd = period.endDate.toString()
-
-        // Calcular las fechas efectivas del segmento dentro de la estadía
-        const segmentStart = checkIn > periodStart ? checkIn : periodStart
-        const segmentEnd = checkOut <= periodEnd ? 
-          this.subtractDays(checkOut, 1) : // Check-out no cuenta como noche
-          periodEnd
-
-        // Solo procesar si hay noches en este segmento
-        if (segmentStart <= segmentEnd) {
-          const nights = this.calculateNightsBetween(segmentStart, segmentEnd)
-          let pricePerNight = Number(period.price)
-
-          // Aplicar modificadores por ocupación si hay pasajeros extra
-          if (pax > roomType.baseCapacity) {
-            const extraPax = pax - roomType.baseCapacity
-            const modifiers = await this.getRepository().findOccupancyModifiers(period.id)
-            
-            for (const modifier of modifiers) {
-              if (modifier.modifierType === 'fixed') {
-                // Precio fijo por pasajero extra
-                pricePerNight += extraPax * Number(modifier.modifierValue)
-              } else if (modifier.modifierType === 'percentage') {
-                // Porcentaje sobre el precio base por pasajero extra
-                const percentageIncrease = (Number(modifier.modifierValue) / 100) * Number(period.price)
-                pricePerNight += extraPax * percentageIncrease
-              }
-            }
-          }
-
-          const subtotal = nights * pricePerNight
-
-          segments.push({
-            startDate: segmentStart,
-            endDate: segmentEnd,
-            pricePerNight: Math.round(pricePerNight * 100) / 100,
-            nights,
-            subtotal: Math.round(subtotal * 100) / 100
-          })
-
-          totalPrice += subtotal
-          totalNights += nights
-        }
-      }
-
-      // Agregar este tipo de habitación al resultado si tiene tarifas
-      if (segments.length > 0) {
-        availableRoomTypes.push({
-          roomType: {
-            id: roomType.id,
-            name: roomType.name,
-            code: roomType.code,
-            baseCapacity: roomType.baseCapacity,
-            maxCapacity: roomType.maxCapacity
-          },
-          totalNights,
-          segments,
-          totalPrice: Math.round(totalPrice * 100) / 100
-        })
-      }
-    }
-
-    return {
-      pax,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      availableRoomTypes
-    }
-  }
-
-
-  /**
-   * Calcula el número de noches entre dos fechas (inclusive en ambos extremos)
-   * @param startDate Fecha de inicio en formato YYYY-MM-DD
-   * @param endDate Fecha de fin en formato YYYY-MM-DD
-   * @returns Número de noches
-   */
-  private calculateNightsBetween(startDate: string, endDate: string): number {
-    const start = new Date(startDate + 'T00:00:00.000Z')
-    const end = new Date(endDate + 'T00:00:00.000Z')
-    const diffTime = end.getTime() - start.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays + 1 // +1 porque ambas fechas son inclusivas
   }
 
   /**
