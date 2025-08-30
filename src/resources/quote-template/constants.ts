@@ -1,0 +1,3 @@
+export const repositories = {
+  QUOTE_TEMPLATE_REPOSITORY: 'QUOTE_TEMPLATE_REPOSITORY',
+}

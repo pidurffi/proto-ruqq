@@ -14,6 +14,9 @@ import { RoomTypeModule } from './resources/room-type/room-type.module';
 import { BaseRatePeriodModule } from './resources/base-rate-period/base-rate-period.module';
 import { OccupancyRateModifiersModule } from './resources/occupancy-rate-modifiers/occupancy-rate-modifiers.module';
 import { QuotesModule } from './resources/quotes/quotes.module';
+import { ContentBlockModule } from './resources/content-block/content-block.module';
+import { QuoteTemplateModule } from './resources/quote-template/quote-template.module';
+import { QuoteTemplateBlockModule } from './resources/quote-template-block/quote-template-block.module';
 //ImportTemplateModule
 //NO BORRAR LA LINEA DE ARRIBA
 
@@ -62,6 +65,9 @@ const loadJsonConfig = () => {
     BaseRatePeriodModule,
     OccupancyRateModifiersModule,
     QuotesModule,
+    ContentBlockModule,
+    QuoteTemplateModule,
+    QuoteTemplateBlockModule,
     //TemplateModule
     //NO BORRAR LA LINEA DE ARRIBA
   ],
