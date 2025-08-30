@@ -153,14 +153,33 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
         // Solo procesar si hay noches en este segmento
         if (segmentStart <= segmentEnd) {
           const nights = this.calculateNightsBetween(segmentStart, segmentEnd)
-          const subtotal = nights * Number(period.price)
+          let pricePerNight = Number(period.price)
+
+          // Aplicar modificadores por ocupación si hay pasajeros extra
+          if (pax > roomType.baseCapacity) {
+            const extraPax = pax - roomType.baseCapacity
+            const modifiers = await this.getOccupancyModifiers(period.id)
+            
+            for (const modifier of modifiers) {
+              if (modifier.modifierType === 'fixed') {
+                // Precio fijo por pasajero extra
+                pricePerNight += extraPax * Number(modifier.modifierValue)
+              } else if (modifier.modifierType === 'percentage') {
+                // Porcentaje sobre el precio base por pasajero extra
+                const percentageIncrease = (Number(modifier.modifierValue) / 100) * Number(period.price)
+                pricePerNight += extraPax * percentageIncrease
+              }
+            }
+          }
+
+          const subtotal = nights * pricePerNight
 
           segments.push({
             startDate: segmentStart,
             endDate: segmentEnd,
-            pricePerNight: Number(period.price),
+            pricePerNight: Math.round(pricePerNight * 100) / 100,
             nights,
-            subtotal
+            subtotal: Math.round(subtotal * 100) / 100
           })
 
           totalPrice += subtotal
@@ -191,6 +210,19 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
       checkOutDate: checkOut,
       availableRoomTypes
     }
+  }
+
+  /**
+   * Busca los modificadores de ocupación para un período de tarifa específico
+   * @param baseRatePeriodId ID del período de tarifa base
+   * @returns Array de modificadores de ocupación
+   */
+  private async getOccupancyModifiers(baseRatePeriodId: string) {
+    return await this.dataSource
+      .getRepository('OccupancyRateModifiers')
+      .createQueryBuilder('orm')
+      .where('orm.baseRatePeriodId = :baseRatePeriodId', { baseRatePeriodId })
+      .getMany()
   }
 
   /**

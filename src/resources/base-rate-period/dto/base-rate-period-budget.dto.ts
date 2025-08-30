@@ -1,11 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsNotEmpty, IsDateString } from 'class-validator'
+import { IsNotEmpty, IsDateString, IsInt, Min, Max } from 'class-validator'
 
 export class BaseRatePeriodBudgetDto {
   @ApiProperty({
     description: 'Número de huéspedes',
-    example: 2
+    example: 2,
+    minimum: 1,
+    maximum: 20
   })
+  @IsInt()
+  @Min(1)
+  @Max(20)
   @IsNotEmpty()
   pax: number
 
