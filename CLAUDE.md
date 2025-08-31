@@ -21,6 +21,85 @@ Este es "Ruqq" - Un sitema de generador de presupuestos y reservas para hoteles,
 - **Relaciones**: Decoradores TypeORM estándar (`@OneToMany`, `@ManyToOne`)
 - **Migraciones**: Archivos de migración manuales en `/engine/migrations/`
 
+### **🚨 CRITICAL: Patrón de Inyección de Dependencias - Repositorios**
+Este boilerplate usa EXCLUSIVAMENTE repositorios personalizados. NUNCA usar `@InjectRepository()` ni `TypeOrmModule.forFeature()`.
+
+#### **✅ Patrón CORRECTO (Repositorios Personalizados):**
+```typescript
+// En el Service
+import { SomeEntityRepository } from '../repositories/some-entity.repository'
+
+@Injectable()
+export class SomeService {
+  constructor(
+    @Inject(SomeEntityRepository)  // ← Inyectar la CLASE directamente
+    private readonly someEntityRepository: SomeEntityRepository,
+  ) {}
+}
+
+// En el Module
+import { SomeEntityProviders } from './providers/some-entity.providers'
+import { SomeEntityRepository } from './repositories/some-entity.repository'
+
+@Module({
+  imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule], // ← NO TypeOrmModule.forFeature
+  providers: [...SomeEntityProviders, SomeEntityRepository, SomeEntityService], // ← Providers + Repository + Service
+  controllers: [SomeEntityController],
+  exports: [SomeEntityService, SomeEntityRepository], // ← Exportar Repository también
+})
+```
+
+#### **❌ Patrón INCORRECTO (NO usar en este boilerplate):**
+```typescript
+// NUNCA hacer esto en este proyecto:
+@Injectable()
+export class WrongService {
+  constructor(
+    @InjectRepository(SomeEntity) // ← ❌ NUNCA usar @InjectRepository
+    private readonly repository: Repository<SomeEntity>,
+  ) {}
+}
+
+@Module({
+  imports: [TypeOrmModule.forFeature([SomeEntity])], // ← ❌ NUNCA usar forFeature
+})
+```
+
+#### **Estructura de Repositorio Personalizado:**
+```typescript
+// some-entity.repository.ts
+@Injectable()
+export class SomeEntityRepository extends Repository<SomeEntity> {
+  constructor(
+    @Inject(repositories.SOME_ENTITY_REPOSITORY) // ← Inyecta el provider
+    private readonly _: Repository<SomeEntity>,
+    @Inject(resources.DATA_SOURCE_POSTGRES)
+    private readonly dataSource: DataSource,
+  ) {
+    super(_.target, _.manager, _.queryRunner) // ← Llama al constructor padre
+  }
+  
+  // Métodos personalizados aquí
+}
+```
+
+#### **Provider Pattern:**
+```typescript
+// providers/some-entity.providers.ts
+export const SomeEntityProviders = [
+  {
+    provide: repositories.SOME_ENTITY_REPOSITORY,
+    useFactory: (dataSource: DataSource) => dataSource.getRepository(SomeEntity),
+    inject: [resources.DATA_SOURCE_POSTGRES],
+  },
+]
+```
+
+#### **Referencias exitosas en el proyecto:**
+- `QuotesService` inyecta `BaseRatePeriodRepository` ✅
+- `BaseRatePeriodModule` usa `BaseRatePeriodProviders` ✅
+- Todos los módulos generados siguen este patrón ✅
+
 ### **Resolución de problemas / errores de código**
 Siempre buscar en internet en la documentación oficial o foros especializados si persiste un problema y no podemos solucionarlo en pocos intentos.
 
@@ -86,3 +165,5 @@ module-name/
 - Escribir DTOs/Services/Controllers desde cero
 - Crear estructura de carpetas manualmente
 - Registrar módulos manualmente en app.module.ts
+- **🚨 NUNCA usar `@InjectRepository()` o `TypeOrmModule.forFeature()`** - Este boilerplate usa SOLO repositorios personalizados
+- **🚨 NUNCA inyectar tokens de provider** - Inyectar las CLASES de Repository directamente con `@Inject(RepositoryClass)`

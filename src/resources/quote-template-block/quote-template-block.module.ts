@@ -15,9 +15,8 @@ import { QuoteTemplateBlockProviders } from './providers/quote-template-block.pr
     ...QuoteTemplateBlockProviders,
     QuoteTemplateBlockRepository,
     QuoteTemplateBlockService,
-    QuoteTemplateBlockRepository,
   ],
   controllers: [QuoteTemplateBlockController],
-  exports: [QuoteTemplateBlockService],
+  exports: [QuoteTemplateBlockService, QuoteTemplateBlockRepository],
 })
 export class QuoteTemplateBlockModule {}

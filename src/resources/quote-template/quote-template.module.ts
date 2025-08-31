@@ -11,8 +11,8 @@ import { QuoteTemplateProviders } from './providers/quote-template.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...QuoteTemplateProviders, QuoteTemplateRepository, QuoteTemplateService, QuoteTemplateRepository],
+  providers: [...QuoteTemplateProviders, QuoteTemplateRepository, QuoteTemplateService],
   controllers: [QuoteTemplateController],
-  exports: [QuoteTemplateService],
+  exports: [QuoteTemplateService, QuoteTemplateRepository],
 })
 export class QuoteTemplateModule {}

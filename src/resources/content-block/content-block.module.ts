@@ -11,8 +11,8 @@ import { ContentBlockProviders } from './providers/content-block.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...ContentBlockProviders, ContentBlockRepository, ContentBlockService, ContentBlockRepository],
+  providers: [...ContentBlockProviders, ContentBlockRepository, ContentBlockService],
   controllers: [ContentBlockController],
-  exports: [ContentBlockService],
+  exports: [ContentBlockService, ContentBlockRepository],
 })
 export class ContentBlockModule {}
