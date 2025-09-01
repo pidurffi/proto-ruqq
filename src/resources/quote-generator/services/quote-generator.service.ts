@@ -128,11 +128,11 @@ export class QuoteGeneratorService {
    * @returns Texto formateado con precios de habitaciones
    */
   private formatDynamicContent(quoteData: QuoteResponseDto): string {
-    if (!quoteData.availableRoomTypes || quoteData.availableRoomTypes.length === 0) {
+    if (!quoteData.available || quoteData.available.length === 0) {
       return 'No hay habitaciones disponibles para las fechas seleccionadas.'
     }
 
-    const formattedRooms = quoteData.availableRoomTypes
+    const formattedRooms = quoteData.available
       .map((roomTypeQuote: RoomTypeQuoteDto) => {
         const roomName = roomTypeQuote.roomType.name
         const totalPrice = roomTypeQuote.totalPrice

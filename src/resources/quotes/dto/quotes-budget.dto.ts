@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsNotEmpty, IsDateString, IsInt, Min, Max } from 'class-validator'
+import { UnavailableRoomTypeDto } from './rejection-reason.dto'
 
 /**
  * DTO para solicitud de cotización de precios
@@ -108,7 +109,8 @@ export class RoomTypeQuoteDto {
 
 /**
  * DTO de respuesta para cotización completa
- * Representa el resultado final del proceso de cotización con todos los tipos disponibles
+ * Representa el resultado final del proceso de cotización con habitaciones disponibles y no disponibles
+ * MEJORA UX: Proporciona información transparente sobre por qué ciertas habitaciones no están disponibles
  */
 export class QuoteResponseDto {
   @ApiProperty({
@@ -133,5 +135,11 @@ export class QuoteResponseDto {
     description: 'Array de tipos de habitación disponibles con sus precios',
     type: [RoomTypeQuoteDto]
   })
-  availableRoomTypes: RoomTypeQuoteDto[]
+  available: RoomTypeQuoteDto[]
+
+  @ApiProperty({
+    description: 'Array de tipos de habitación no disponibles con motivos específicos',
+    type: [UnavailableRoomTypeDto]
+  })
+  unavailable: UnavailableRoomTypeDto[]
 }

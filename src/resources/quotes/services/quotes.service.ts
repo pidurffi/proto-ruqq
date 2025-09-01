@@ -1,7 +1,7 @@
 import { Inject, Injectable, BadRequestException } from '@nestjs/common'
 
 import { BaseRatePeriodRepository } from '../../base-rate-period/repositories/base-rate-period.repository'
-import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto, QuoteSegmentDto } from '../dto'
+import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto, QuoteSegmentDto, UnavailableRoomTypeDto, RejectionReasonCode } from '../dto'
 
 /**
  * QuotesService - Servicio de Dominio para cálculo de cotizaciones
@@ -52,33 +52,34 @@ export class QuotesService {
     // Validación de reglas de negocio de dominio
     this.validateQuoteRequest(checkIn, checkOut)
 
-    // 1. FASE DE FILTRADO - Aplicar restricciones de capacidad
-    const validRoomTypes = await this.baseRatePeriodRepository.findValidRoomTypes(pax)
+    // 1. OBTENER TODOS LOS TIPOS DE HABITACIÓN (ya no pre-filtramos)
+    const allRoomTypes = await this.baseRatePeriodRepository.findAllRoomTypes()
 
-    if (validRoomTypes.length === 0) {
-      throw new BadRequestException(
-        `No se encontraron tipos de habitación con capacidad para ${pax} huéspedes`
-      )
+    if (allRoomTypes.length === 0) {
+      throw new BadRequestException('No se encontraron tipos de habitación configurados en el sistema')
     }
 
-    // 2. FASE DE CÁLCULO - Procesar cada tipo de habitación válido
-    const availableRoomTypes: RoomTypeQuoteDto[] = []
+    // 2. PROCESAR CADA TIPO DE HABITACIÓN Y CLASIFICAR
+    const available: RoomTypeQuoteDto[] = []
+    const unavailable: UnavailableRoomTypeDto[] = []
 
-    for (const roomType of validRoomTypes) {
-      const roomTypeQuote = await this.calculateRoomTypeQuote(roomType, checkIn, checkOut, pax)
+    for (const roomType of allRoomTypes) {
+      const result = await this.evaluateRoomTypeAvailability(roomType, checkIn, checkOut, pax)
       
-      // Solo incluir si pasa las restricciones y tiene tarifas configuradas
-      if (roomTypeQuote && roomTypeQuote.segments.length > 0) {
-        availableRoomTypes.push(roomTypeQuote)
+      if (result.isAvailable) {
+        available.push(result.quote!)
+      } else {
+        unavailable.push(result.rejection!)
       }
     }
 
-    // 3. FASE DE RESPUESTA - Ensamblar resultado final
+    // 3. FASE DE RESPUESTA - Ensamblar resultado final con información completa
     return {
       pax,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      availableRoomTypes
+      available,
+      unavailable
     }
   }
 
@@ -107,11 +108,135 @@ export class QuotesService {
   }
 
   /**
+   * Evalúa la disponibilidad de un tipo de habitación y retorna el resultado clasificado
+   * 
+   * NUEVA LÓGICA DE EVALUACIÓN:
+   * - Verifica paso a paso cada restricción
+   * - Retorna información específica sobre el motivo de rechazo
+   * - Mejora la UX proporcionando transparencia total
+   * 
+   * @param roomType Tipo de habitación a evaluar
+   * @param checkIn Fecha de entrada
+   * @param checkOut Fecha de salida  
+   * @param pax Número de huéspedes
+   * @returns Resultado con disponibilidad y cotización o motivo de rechazo
+   */
+  private async evaluateRoomTypeAvailability(
+    roomType: any,
+    checkIn: string,
+    checkOut: string,
+    pax: number
+  ): Promise<{
+    isAvailable: boolean
+    quote?: RoomTypeQuoteDto
+    rejection?: UnavailableRoomTypeDto
+  }> {
+    const roomTypeInfo = {
+      id: roomType.id,
+      name: roomType.name,
+      code: roomType.code,
+      baseCapacity: roomType.baseCapacity,
+      maxCapacity: roomType.maxCapacity
+    }
+
+    // PASO A: Verificar capacidad máxima
+    if (pax > roomType.maxCapacity) {
+      return {
+        isAvailable: false,
+        rejection: {
+          roomType: roomTypeInfo,
+          reasonCode: RejectionReasonCode.CAPACITY_EXCEEDED,
+          reasonMessage: `La cantidad de huéspedes (${pax}) excede la capacidad máxima (${roomType.maxCapacity}).`
+        }
+      }
+    }
+
+    // PASO B: Verificar restricciones de estadía
+    const restrictions = await this.baseRatePeriodRepository.findApplicableRestrictions(
+      roomType.id,
+      checkIn,
+      checkOut
+    )
+
+    const nights = this.calculateNightsBetween(checkIn, this.subtractDays(checkOut, 1))
+
+    for (const restriction of restrictions) {
+      // Verificar estancia mínima
+      if (restriction.minLengthOfStay && nights < restriction.minLengthOfStay) {
+        return {
+          isAvailable: false,
+          rejection: {
+            roomType: roomTypeInfo,
+            reasonCode: RejectionReasonCode.MIN_STAY_NOT_MET,
+            reasonMessage: `La estancia mínima requerida para estas fechas es de ${restriction.minLengthOfStay} noches.`
+          }
+        }
+      }
+
+      // Verificar estancia máxima
+      if (restriction.maxLengthOfStay && nights > restriction.maxLengthOfStay) {
+        return {
+          isAvailable: false,
+          rejection: {
+            roomType: roomTypeInfo,
+            reasonCode: RejectionReasonCode.MAX_STAY_EXCEEDED,
+            reasonMessage: `La estancia máxima permitida para estas fechas es de ${restriction.maxLengthOfStay} noches.`
+          }
+        }
+      }
+
+      // Verificar closed to arrival
+      if (restriction.closedToArrival && this.dateInRange(checkIn, restriction.startDate.toString(), restriction.endDate.toString())) {
+        return {
+          isAvailable: false,
+          rejection: {
+            roomType: roomTypeInfo,
+            reasonCode: RejectionReasonCode.CLOSED_TO_ARRIVAL,
+            reasonMessage: `No se permiten check-ins en la fecha ${checkIn}.`
+          }
+        }
+      }
+
+      // Verificar closed to departure
+      if (restriction.closedToDeparture && this.dateInRange(checkOut, restriction.startDate.toString(), restriction.endDate.toString())) {
+        return {
+          isAvailable: false,
+          rejection: {
+            roomType: roomTypeInfo,
+            reasonCode: RejectionReasonCode.CLOSED_TO_DEPARTURE,
+            reasonMessage: `No se permiten check-outs en la fecha ${checkOut}.`
+          }
+        }
+      }
+    }
+
+    // PASO C: Verificar disponibilidad de tarifas y calcular precio
+    const quote = await this.calculateRoomTypeQuote(roomType, checkIn, checkOut, pax)
+    
+    if (!quote || quote.segments.length === 0) {
+      return {
+        isAvailable: false,
+        rejection: {
+          roomType: roomTypeInfo,
+          reasonCode: RejectionReasonCode.NO_RATES_CONFIGURED,
+          reasonMessage: 'No existen tarifas configuradas para todo el período solicitado.'
+        }
+      }
+    }
+
+    // PASO D: ¡Éxito! Habitación disponible
+    return {
+      isAvailable: true,
+      quote
+    }
+  }
+
+  /**
    * Calcula la cotización para un tipo de habitación específico
    * 
-   * DOMAIN LOGIC:
-   * - Aplica restricciones de estadía y disponibilidad
-   * - Aplica modificadores por ocupación siguiendo reglas de negocio
+   * DOMAIN LOGIC (SIMPLIFICADO):
+   * - Se asume que las restricciones ya fueron validadas en evaluateRoomTypeAvailability
+   * - Aplica modificadores por ocupación siguiendo reglas de negocio  
    * - Calcula precios por segmento respetando períodos tarifarios
    * - Maneja lógica híbrida de precios (fijo vs porcentaje)
    * 
@@ -119,7 +244,7 @@ export class QuotesService {
    * @param checkIn Fecha de entrada
    * @param checkOut Fecha de salida
    * @param pax Número de huéspedes
-   * @returns Cotización completa para este tipo de habitación o null si hay restricciones
+   * @returns Cotización completa para este tipo de habitación o null si no hay tarifas
    */
   private async calculateRoomTypeQuote(
     roomType: any,
@@ -127,38 +252,7 @@ export class QuotesService {
     checkOut: string,
     pax: number
   ): Promise<RoomTypeQuoteDto | null> {
-    // PASO 1: VALIDAR RESTRICCIONES DE ESTADÍA
-    const restrictions = await this.baseRatePeriodRepository.findApplicableRestrictions(
-      roomType.id,
-      checkIn,
-      checkOut
-    )
-
-    // Calcular duración de la estadía
-    const nights = this.calculateNightsBetween(checkIn, this.subtractDays(checkOut, 1))
-
-    // Verificar restricciones
-    for (const restriction of restrictions) {
-      // Verificar estancia mínima/máxima
-      if (restriction.minLengthOfStay && nights < restriction.minLengthOfStay) {
-        return null // No cumple estancia mínima
-      }
-      if (restriction.maxLengthOfStay && nights > restriction.maxLengthOfStay) {
-        return null // Excede estancia máxima
-      }
-
-      // Verificar closed to arrival (check-in no permitido)
-      if (restriction.closedToArrival && this.dateInRange(checkIn, restriction.startDate.toString(), restriction.endDate.toString())) {
-        return null // Check-in no permitido en esta fecha
-      }
-
-      // Verificar closed to departure (check-out no permitido)
-      if (restriction.closedToDeparture && this.dateInRange(checkOut, restriction.startDate.toString(), restriction.endDate.toString())) {
-        return null // Check-out no permitido en esta fecha
-      }
-    }
-
-    // PASO 2: BUSCAR PERÍODOS TARIFARIOS (solo si pasa las restricciones)
+    // BUSCAR PERÍODOS TARIFARIOS
     const relevantPeriods = await this.baseRatePeriodRepository.findRelevantPeriods(
       roomType.id,
       checkIn,

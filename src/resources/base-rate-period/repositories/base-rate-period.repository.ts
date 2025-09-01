@@ -63,6 +63,18 @@ export class BaseRatePeriodRepository extends Repository<BaseRatePeriod> {
   }
 
   /**
+   * Busca TODOS los tipos de habitación disponibles en el sistema
+   * @returns Array de todos los tipos de habitación
+   */
+  async findAllRoomTypes() {
+    return await this.dataSource
+      .getRepository('RoomType')
+      .createQueryBuilder('rt')
+      .orderBy('rt.maxCapacity', 'ASC')
+      .getMany()
+  }
+
+  /**
    * Busca períodos de tarifa relevantes para un tipo de habitación y rango de fechas
    * @param roomTypeId ID del tipo de habitación
    * @param checkIn Fecha de check-in
