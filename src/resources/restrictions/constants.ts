@@ -1,0 +1,3 @@
+export const repositories = {
+  RESTRICTIONS_REPOSITORY: 'RESTRICTIONS_REPOSITORY',
+}

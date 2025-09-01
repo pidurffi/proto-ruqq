@@ -67,8 +67,8 @@ export class QuotesService {
     for (const roomType of validRoomTypes) {
       const roomTypeQuote = await this.calculateRoomTypeQuote(roomType, checkIn, checkOut, pax)
       
-      // Solo incluir tipos de habitación con tarifas configuradas
-      if (roomTypeQuote.segments.length > 0) {
+      // Solo incluir si pasa las restricciones y tiene tarifas configuradas
+      if (roomTypeQuote && roomTypeQuote.segments.length > 0) {
         availableRoomTypes.push(roomTypeQuote)
       }
     }
@@ -110,6 +110,7 @@ export class QuotesService {
    * Calcula la cotización para un tipo de habitación específico
    * 
    * DOMAIN LOGIC:
+   * - Aplica restricciones de estadía y disponibilidad
    * - Aplica modificadores por ocupación siguiendo reglas de negocio
    * - Calcula precios por segmento respetando períodos tarifarios
    * - Maneja lógica híbrida de precios (fijo vs porcentaje)
@@ -118,15 +119,46 @@ export class QuotesService {
    * @param checkIn Fecha de entrada
    * @param checkOut Fecha de salida
    * @param pax Número de huéspedes
-   * @returns Cotización completa para este tipo de habitación
+   * @returns Cotización completa para este tipo de habitación o null si hay restricciones
    */
   private async calculateRoomTypeQuote(
     roomType: any,
     checkIn: string,
     checkOut: string,
     pax: number
-  ): Promise<RoomTypeQuoteDto> {
-    // Buscar períodos tarifarios relevantes
+  ): Promise<RoomTypeQuoteDto | null> {
+    // PASO 1: VALIDAR RESTRICCIONES DE ESTADÍA
+    const restrictions = await this.baseRatePeriodRepository.findApplicableRestrictions(
+      roomType.id,
+      checkIn,
+      checkOut
+    )
+
+    // Calcular duración de la estadía
+    const nights = this.calculateNightsBetween(checkIn, this.subtractDays(checkOut, 1))
+
+    // Verificar restricciones
+    for (const restriction of restrictions) {
+      // Verificar estancia mínima/máxima
+      if (restriction.minLengthOfStay && nights < restriction.minLengthOfStay) {
+        return null // No cumple estancia mínima
+      }
+      if (restriction.maxLengthOfStay && nights > restriction.maxLengthOfStay) {
+        return null // Excede estancia máxima
+      }
+
+      // Verificar closed to arrival (check-in no permitido)
+      if (restriction.closedToArrival && this.dateInRange(checkIn, restriction.startDate.toString(), restriction.endDate.toString())) {
+        return null // Check-in no permitido en esta fecha
+      }
+
+      // Verificar closed to departure (check-out no permitido)
+      if (restriction.closedToDeparture && this.dateInRange(checkOut, restriction.startDate.toString(), restriction.endDate.toString())) {
+        return null // Check-out no permitido en esta fecha
+      }
+    }
+
+    // PASO 2: BUSCAR PERÍODOS TARIFARIOS (solo si pasa las restricciones)
     const relevantPeriods = await this.baseRatePeriodRepository.findRelevantPeriods(
       roomType.id,
       checkIn,
@@ -296,5 +328,17 @@ export class QuotesService {
     const diffTime = end.getTime() - start.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays + 1 // +1 porque ambas fechas son inclusivas
+  }
+
+  /**
+   * Verifica si una fecha está dentro de un rango específico
+   * 
+   * @param date Fecha a verificar
+   * @param startDate Fecha de inicio del rango
+   * @param endDate Fecha de fin del rango
+   * @returns true si la fecha está dentro del rango
+   */
+  private dateInRange(date: string, startDate: string, endDate: string): boolean {
+    return date >= startDate && date <= endDate
   }
 }

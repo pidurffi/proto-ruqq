@@ -18,6 +18,7 @@ import { ContentBlockModule } from './resources/content-block/content-block.modu
 import { QuoteTemplateModule } from './resources/quote-template/quote-template.module';
 import { QuoteTemplateBlockModule } from './resources/quote-template-block/quote-template-block.module';
 import { QuoteGeneratorModule } from './resources/quote-generator/quote-generator.module';
+import { RestrictionsModule } from './resources/restrictions/restrictions.module';
 //ImportTemplateModule
 //NO BORRAR LA LINEA DE ARRIBA
 
@@ -70,6 +71,7 @@ const loadJsonConfig = () => {
     QuoteTemplateModule,
     QuoteTemplateBlockModule,
     QuoteGeneratorModule,
+    RestrictionsModule,
     //TemplateModule
     //NO BORRAR LA LINEA DE ARRIBA
   ],

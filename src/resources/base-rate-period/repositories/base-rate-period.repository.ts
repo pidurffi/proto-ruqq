@@ -90,4 +90,21 @@ export class BaseRatePeriodRepository extends Repository<BaseRatePeriod> {
       .where('orm.baseRatePeriodId = :baseRatePeriodId', { baseRatePeriodId })
       .getMany()
   }
+
+  /**
+   * Busca restricciones de estadía que afecten un tipo de habitación y rango de fechas
+   * @param roomTypeId ID del tipo de habitación
+   * @param checkIn Fecha de check-in
+   * @param checkOut Fecha de check-out
+   * @returns Array de restricciones aplicables
+   */
+  async findApplicableRestrictions(roomTypeId: string, checkIn: string, checkOut: string) {
+    return await this.dataSource
+      .getRepository('Restrictions')
+      .createQueryBuilder('r')
+      .where('r.roomTypeId = :roomTypeId', { roomTypeId })
+      .andWhere('r.startDate <= :checkOut', { checkOut })
+      .andWhere('r.endDate >= :checkIn', { checkIn })
+      .getMany()
+  }
 }
