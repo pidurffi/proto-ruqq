@@ -3,7 +3,7 @@ import { IsOptional, IsString } from 'class-validator'
 
 import { RequestPaginationDto } from '../../../common/dto/pagination.dto'
 
-export class QuoteGeneratorQueryDto extends RequestPaginationDto {
+export class PriceRulesQueryDto extends RequestPaginationDto {
   @ApiProperty({
     description: 'Filtro de búsqueda',
     required: false,

@@ -1,6 +1,7 @@
 import { Inject, Injectable, BadRequestException } from '@nestjs/common'
 
 import { BaseRatePeriodRepository } from '../../base-rate-period/repositories/base-rate-period.repository'
+import { PriceRulesService } from '../../price-rules/services/price-rules.service'
 import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto, QuoteSegmentDto, UnavailableRoomTypeDto, RejectionReasonCode } from '../dto'
 
 /**
@@ -25,6 +26,8 @@ export class QuotesService {
   constructor(
     @Inject(BaseRatePeriodRepository)
     private readonly baseRatePeriodRepository: BaseRatePeriodRepository,
+    @Inject(PriceRulesService)
+    private readonly priceRulesService: PriceRulesService,
   ) {}
 
   /**
@@ -234,11 +237,10 @@ export class QuotesService {
   /**
    * Calcula la cotización para un tipo de habitación específico
    * 
-   * DOMAIN LOGIC (SIMPLIFICADO):
-   * - Se asume que las restricciones ya fueron validadas en evaluateRoomTypeAvailability
-   * - Aplica modificadores por ocupación siguiendo reglas de negocio  
-   * - Calcula precios por segmento respetando períodos tarifarios
-   * - Maneja lógica híbrida de precios (fijo vs porcentaje)
+   * NUEVA IMPLEMENTACIÓN CON PRICE RULES v2.3:
+   * - Calcula precio noche por noche aplicando reglas de precio (price_rules)
+   * - Agrupa noches consecutivas con el mismo precio en segmentos
+   * - Aplica modificadores por ocupación y reglas de precio en cada noche
    * 
    * @param roomType Tipo de habitación a cotizar
    * @param checkIn Fecha de entrada
@@ -252,33 +254,23 @@ export class QuotesService {
     checkOut: string,
     pax: number
   ): Promise<RoomTypeQuoteDto | null> {
-    // BUSCAR PERÍODOS TARIFARIOS
-    const relevantPeriods = await this.baseRatePeriodRepository.findRelevantPeriods(
-      roomType.id,
+    // NUEVO ALGORITMO: Calcular precio noche por noche
+    const nightlyPrices = await this.calculateNightlyPrices(
+      roomType,
       checkIn,
-      checkOut
+      checkOut,
+      pax
     )
 
-    const segments: QuoteSegmentDto[] = []
-    let totalPrice = 0
-    let totalNights = 0
-
-    // Procesar cada período tarifario
-    for (const period of relevantPeriods) {
-      const segment = await this.calculatePeriodSegment(
-        period,
-        checkIn,
-        checkOut,
-        roomType,
-        pax
-      )
-
-      if (segment) {
-        segments.push(segment)
-        totalPrice += segment.subtotal
-        totalNights += segment.nights
-      }
+    if (nightlyPrices.length === 0) {
+      return null
     }
+
+    // Agrupar noches consecutivas con el mismo precio en segmentos
+    const segments = this.groupConsecutiveNights(nightlyPrices)
+    
+    const totalPrice = nightlyPrices.reduce((sum, night) => sum + night.finalPrice, 0)
+    const totalNights = nightlyPrices.length
 
     return {
       roomType: {
@@ -290,8 +282,193 @@ export class QuotesService {
       },
       totalNights,
       segments,
-      totalPrice: Math.round(totalPrice * 100) / 100 // Redondeo financiero
+      totalPrice: Math.round(totalPrice * 100) / 100
     }
+  }
+
+  /**
+   * Calcula el precio final para cada noche individual aplicando el algoritmo v2.3
+   * 
+   * ALGORITMO POR NOCHE:
+   * 1. Obtener precio base de base_rate_period
+   * 2. Aplicar modificador de ocupación
+   * 3. Buscar y aplicar price_rule (override) si existe
+   * 4. Calcular precio final de la noche
+   * 
+   * @param roomType Tipo de habitación
+   * @param checkIn Fecha de entrada  
+   * @param checkOut Fecha de salida
+   * @param pax Número de huéspedes
+   * @returns Array con precio final por cada noche
+   */
+  private async calculateNightlyPrices(
+    roomType: any,
+    checkIn: string,
+    checkOut: string,
+    pax: number
+  ): Promise<Array<{ date: string; finalPrice: number }>> {
+    const nightlyPrices: Array<{ date: string; finalPrice: number }> = []
+    
+    // Iterar desde checkIn hasta la noche anterior a checkOut
+    let currentDate = new Date(checkIn + 'T00:00:00.000Z')
+    const checkOutDate = new Date(checkOut + 'T00:00:00.000Z')
+
+    while (currentDate < checkOutDate) {
+      const dateString = currentDate.toISOString().split('T')[0]
+      
+      // PASO 1: Obtener precio base
+      const basePrice = await this.getBasePriceForNight(roomType.id, dateString)
+      if (basePrice === null) {
+        // No hay tarifa configurada para esta noche - saltar
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+        continue
+      }
+
+      // PASO 2: Aplicar modificador de ocupación
+      const occupancyAdjustedPrice = await this.applyOccupancyAdjustment(
+        roomType,
+        basePrice.periodId,
+        basePrice.price,
+        pax
+      )
+
+      // PASO 3: Buscar y aplicar regla de precio (override)
+      const priceRule = await this.priceRulesService.findApplicableRule(
+        roomType.id,
+        currentDate
+      )
+
+      // PASO 4: Calcular precio final
+      let finalPrice = occupancyAdjustedPrice
+      if (priceRule) {
+        finalPrice = this.priceRulesService.calculateAdjustedPrice(
+          occupancyAdjustedPrice,
+          priceRule
+        )
+      }
+
+      nightlyPrices.push({
+        date: dateString,
+        finalPrice: Math.round(finalPrice * 100) / 100
+      })
+
+      // Avanzar al siguiente día
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+    }
+
+    return nightlyPrices
+  }
+
+  /**
+   * Obtiene el precio base para una noche específica desde base_rate_period
+   */
+  private async getBasePriceForNight(
+    roomTypeId: string,
+    date: string
+  ): Promise<{ price: number; periodId: string } | null> {
+    const periods = await this.baseRatePeriodRepository.findRelevantPeriods(
+      roomTypeId,
+      date,
+      this.addDays(date, 1) // Solo necesitamos esta noche
+    )
+
+    if (periods.length === 0) {
+      return null
+    }
+
+    // Tomar el primer período que cubra esta fecha
+    const period = periods[0]
+    return {
+      price: Number(period.price),
+      periodId: period.id
+    }
+  }
+
+  /**
+   * Aplica modificadores de ocupación para una noche específica
+   */
+  private async applyOccupancyAdjustment(
+    roomType: any,
+    periodId: string,
+    basePrice: number,
+    pax: number
+  ): Promise<number> {
+    if (pax <= roomType.baseCapacity) {
+      return basePrice
+    }
+
+    const extraPax = pax - roomType.baseCapacity
+    return await this.applyOccupancyModifiers(periodId, basePrice, extraPax)
+  }
+
+  /**
+   * Agrupa noches consecutivas con el mismo precio en segmentos
+   */
+  private groupConsecutiveNights(
+    nightlyPrices: Array<{ date: string; finalPrice: number }>
+  ): QuoteSegmentDto[] {
+    if (nightlyPrices.length === 0) {
+      return []
+    }
+
+    const segments: QuoteSegmentDto[] = []
+    let currentSegment: {
+      startDate: string
+      endDate: string
+      pricePerNight: number
+      nights: number
+    } = {
+      startDate: nightlyPrices[0].date,
+      endDate: nightlyPrices[0].date,
+      pricePerNight: nightlyPrices[0].finalPrice,
+      nights: 1
+    }
+
+    for (let i = 1; i < nightlyPrices.length; i++) {
+      const currentNight = nightlyPrices[i]
+      
+      if (currentNight.finalPrice === currentSegment.pricePerNight) {
+        // Misma tarifa - extender segmento actual
+        currentSegment.endDate = currentNight.date
+        currentSegment.nights++
+      } else {
+        // Tarifa diferente - cerrar segmento actual y crear uno nuevo
+        segments.push({
+          startDate: currentSegment.startDate,
+          endDate: currentSegment.endDate,
+          pricePerNight: currentSegment.pricePerNight,
+          nights: currentSegment.nights,
+          subtotal: Math.round(currentSegment.pricePerNight * currentSegment.nights * 100) / 100
+        })
+
+        currentSegment = {
+          startDate: currentNight.date,
+          endDate: currentNight.date,
+          pricePerNight: currentNight.finalPrice,
+          nights: 1
+        }
+      }
+    }
+
+    // Agregar último segmento
+    segments.push({
+      startDate: currentSegment.startDate,
+      endDate: currentSegment.endDate,
+      pricePerNight: currentSegment.pricePerNight,
+      nights: currentSegment.nights,
+      subtotal: Math.round(currentSegment.pricePerNight * currentSegment.nights * 100) / 100
+    })
+
+    return segments
+  }
+
+  /**
+   * Suma días a una fecha string manteniendo formato YYYY-MM-DD
+   */
+  private addDays(dateString: string, days: number): string {
+    const date = new Date(dateString + 'T00:00:00.000Z')
+    date.setUTCDate(date.getUTCDate() + days)
+    return date.toISOString().split('T')[0]
   }
 
   /**

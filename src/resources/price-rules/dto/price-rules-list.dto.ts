@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { QuoteGenerator } from '../entities/quote-generator.entity'
+import { PriceRule } from '../entities/price-rules.entity'
 
-export class QuoteGeneratorListDto extends QuoteGenerator {
+export class PriceRulesListDto extends PriceRule {
   @ApiProperty({
     description: 'Total de registros',
     example: 1,

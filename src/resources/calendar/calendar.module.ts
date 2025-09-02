@@ -4,10 +4,10 @@ import { ConfigModule } from '@nestjs/config'
 import { DatabaseModule } from '../../engine/database/database.module'
 import { CommonModule } from '../../common/common.module'
 import { AuthModule } from '../../engine/auth/auth.module'
-import { QuotesController } from './controllers/quotes.controller'
-import { QuotesService } from './services/quotes.service'
-import { BaseRatePeriodModule } from '../base-rate-period/base-rate-period.module'
+import { CalendarController } from './controllers/calendar.controller'
+import { CalendarService } from './services/calendar.service'
 import { PriceRulesModule } from '../price-rules/price-rules.module'
+import { BaseRatePeriodModule } from '../base-rate-period/base-rate-period.module'
 
 @Module({
   imports: [
@@ -15,11 +15,11 @@ import { PriceRulesModule } from '../price-rules/price-rules.module'
     DatabaseModule, 
     CommonModule, 
     AuthModule,
-    BaseRatePeriodModule,
-    PriceRulesModule
+    PriceRulesModule,
+    BaseRatePeriodModule
   ],
-  providers: [QuotesService],
-  controllers: [QuotesController],
-  exports: [QuotesService],
+  providers: [CalendarService],
+  controllers: [CalendarController],
+  exports: [CalendarService],
 })
-export class QuotesModule {}
+export class CalendarModule {}
