@@ -159,6 +159,98 @@ module-name/
 - **src/common/entities/base.entity.ts** - Entidad base con campos comunes
 - **src/engine/auth/entities/user.entity.ts** - Modelo de autenticación de usuario
 
+## 📅 **CRITICAL: Manejo Correcto de Fechas en DTOs**
+
+### **🚨 Problema de Zona Horaria**
+Las fechas en DTOs **DEBEN** seguir el patrón exacto de `BaseRatePeriodCreateDto` para evitar problemas de zona horaria.
+
+### **✅ Patrón CORRECTO (BaseRatePeriod):**
+```typescript
+@ApiProperty({
+  description: 'Fecha de inicio del período',
+  example: '2024-01-01'
+})
+@IsDateString()
+@IsNotEmpty()
+startDate: Date  // ← Tipo Date, no string
+```
+
+### **❌ Patrón INCORRECTO:**
+```typescript
+// NUNCA hacer esto:
+@IsDateString()
+startDate: string  // ← ❌ Causa problemas de zona horaria
+
+// O esto:
+@Transform(({ value }) => new Date(value + 'T00:00:00.000Z'))
+startDate: Date  // ← ❌ Transformaciones manuales innecesarias
+```
+
+### **🔧 Regla de Oro:**
+- **Tipo**: `Date` (siempre)
+- **Validación**: Solo `@IsDateString()` + `@IsNotEmpty()`
+- **Sin transformaciones manuales** en DTOs
+- **Sin conversiones** en servicios si el DTO ya tiene tipo `Date`
+
+### **✅ Resultado Esperado:**
+- Envío: `"2025-03-01"` → Almacena: `2025-03-01`
+- **NO**: `"2025-03-01"` → Almacena: `2025-02-28` (zona horaria incorrecta)
+
+---
+
+## ⏰ **CRITICAL: Manejo de Fechas en Iteraciones (Zona Horaria)**
+
+### **🚨 Problema de Zona Horaria en Loops**
+Al iterar fechas en servicios (ej: cálculo noche por noche), **NUNCA** usar UTC ya que causa desfase de días por zona horaria local (GMT-3 Argentina).
+
+### **✅ Patrón CORRECTO (QuotesService):**
+```typescript
+// ✅ CORRECTO - Sin zona horaria
+let currentDate = new Date(checkIn)
+const checkOutDate = new Date(checkOut)
+
+while (currentDate < checkOutDate) {
+  const dateString = currentDate.toISOString().split('T')[0]
+  const dayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay()
+  
+  // Avanzar al siguiente día
+  currentDate.setDate(currentDate.getDate() + 1)  // ← Local
+}
+```
+
+### **❌ Patrón INCORRECTO:**
+```typescript
+// ❌ INCORRECTO - Con UTC causa desfase
+let currentDate = new Date(checkIn + 'T00:00:00.000Z')  // ← GMT-3 desfase
+const checkOutDate = new Date(checkOut + 'T00:00:00.000Z')
+
+while (currentDate < checkOutDate) {
+  // 2025-03-02 se convierte en 2025-03-01 por zona horaria ❌
+  const dayOfWeek = currentDate.getDay()  // ← Día incorrecto
+  
+  currentDate.setUTCDate(currentDate.getUTCDate() + 1)  // ← UTC problemático
+}
+```
+
+### **🔧 Regla de Oro para Iteraciones:**
+- **Crear fechas**: `new Date(dateString)` (sin 'T00:00:00.000Z')
+- **Iterar días**: `setDate(getDate() + 1)` (no setUTCDate)
+- **Día de semana**: `getDay()` directo (JavaScript local)
+- **PostgreSQL**: Las fechas se guardan correctamente como date sin timezone
+
+### **✅ Resultado Esperado:**
+- **Input**: `"2025-03-02"` (Sábado)
+- **JavaScript**: Sábado (getDay() = 6, ISO = 6) ✅
+- **PostgreSQL**: `2025-03-02` almacenado como date ✅
+- **Price Rule**: Aplica para día 6 (Sábado) ✅
+
+### **❌ Comportamiento Incorrecto Evitado:**
+- **Input**: `"2025-03-02"` (Sábado)  
+- **JavaScript UTC**: Viernes (getDay() = 5, GMT-3 desfase) ❌
+- **Price Rule**: NO aplica para día 6 ❌
+
+---
+
 ## ❌ Lo que NO debo hacer
 
 - Crear entidades manualmente desde cero
@@ -167,3 +259,5 @@ module-name/
 - Registrar módulos manualmente en app.module.ts
 - **🚨 NUNCA usar `@InjectRepository()` o `TypeOrmModule.forFeature()`** - Este boilerplate usa SOLO repositorios personalizados
 - **🚨 NUNCA inyectar tokens de provider** - Inyectar las CLASES de Repository directamente con `@Inject(RepositoryClass)`
+- **🚨 NUNCA usar tipos `string` para fechas en DTOs** - Siempre usar tipo `Date` como en BaseRatePeriod
+- **🚨 NUNCA usar UTC en iteraciones de fechas** - Causa desfase de días por zona horaria GMT-3

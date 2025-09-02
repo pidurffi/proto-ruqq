@@ -17,14 +17,14 @@ export class CalendarBulkEditDto {
     example: '2024-01-01'
   })
   @IsDateString()
-  startDate: string
+  startDate: Date
 
   @ApiProperty({ 
     description: 'Fecha de fin del período',
     example: '2024-01-31'
   })
   @IsDateString()
-  endDate: string
+  endDate: Date
 
   @ApiProperty({ 
     description: 'Días de la semana a modificar (ISO 8601: Lunes=1, ..., Domingo=7)',

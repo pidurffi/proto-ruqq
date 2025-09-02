@@ -31,8 +31,6 @@ export class PriceRulesService extends BaseEntityService<PriceRule> {
     return await this.create({ 
       ...createPriceRuleDto, 
       priority,
-      startDate: new Date(createPriceRuleDto.startDate),
-      endDate: new Date(createPriceRuleDto.endDate),
       uid 
     })
   }
@@ -47,8 +45,6 @@ export class PriceRulesService extends BaseEntityService<PriceRule> {
       ...ruleData,
       roomTypeId,
       priority: 0,
-      startDate: new Date(ruleData.startDate),
-      endDate: new Date(ruleData.endDate),
       uid
     }))
 

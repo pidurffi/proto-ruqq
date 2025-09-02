@@ -16,14 +16,14 @@ export class CreatePriceRuleDto {
     example: '2024-01-01'
   })
   @IsDateString()
-  startDate: string
+  startDate: Date
 
   @ApiProperty({ 
     description: 'Fecha de fin de la regla',
     example: '2024-01-31'
   })
   @IsDateString()
-  endDate: string
+  endDate: Date
 
   @ApiProperty({ 
     description: 'Días de la semana (ISO 8601: Lunes=1, ..., Domingo=7)',
@@ -79,14 +79,14 @@ export class BulkCreatePriceRuleDto {
     example: '2024-01-01'
   })
   @IsDateString()
-  startDate: string
+  startDate: Date
 
   @ApiProperty({ 
     description: 'Fecha de fin de la regla',
     example: '2024-01-31'
   })
   @IsDateString()
-  endDate: string
+  endDate: Date
 
   @ApiProperty({ 
     description: 'Días de la semana (ISO 8601: Lunes=1, ..., Domingo=7)',

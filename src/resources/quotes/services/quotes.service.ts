@@ -310,8 +310,9 @@ export class QuotesService {
     const nightlyPrices: Array<{ date: string; finalPrice: number }> = []
     
     // Iterar desde checkIn hasta la noche anterior a checkOut
-    let currentDate = new Date(checkIn + 'T00:00:00.000Z')
-    const checkOutDate = new Date(checkOut + 'T00:00:00.000Z')
+    // Crear fechas sin zona horaria para evitar problemas de conversión  
+    let currentDate = new Date(checkIn)
+    const checkOutDate = new Date(checkOut)
 
     while (currentDate < checkOutDate) {
       const dateString = currentDate.toISOString().split('T')[0]
@@ -353,7 +354,7 @@ export class QuotesService {
       })
 
       // Avanzar al siguiente día
-      currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+      currentDate.setDate(currentDate.getDate() + 1)
     }
 
     return nightlyPrices
