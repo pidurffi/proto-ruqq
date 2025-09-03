@@ -114,4 +114,15 @@ export class BulkCreatePriceRuleDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   adjustmentValue: number
+
+  @ApiProperty({ 
+    description: 'Prioridad de la regla (mayor número = mayor prioridad)',
+    example: 0,
+    required: false,
+    default: 0
+  })
+  @IsNumber({}, { message: 'Priority debe ser un número' })
+  @Min(0)
+  @IsOptional()
+  priority?: number
 }
