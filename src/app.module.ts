@@ -21,6 +21,7 @@ import { QuoteGeneratorModule } from './resources/quote-generator/quote-generato
 import { RestrictionsModule } from './resources/restrictions/restrictions.module';
 import { PriceRulesModule } from './resources/price-rules/price-rules.module';
 import { CalendarModule } from './resources/calendar/calendar.module';
+import { PriceMatrixModule } from './resources/price-matrix/price-matrix.module';
 //ImportTemplateModule
 //NO BORRAR LA LINEA DE ARRIBA
 
@@ -76,6 +77,7 @@ const loadJsonConfig = () => {
     RestrictionsModule,
     PriceRulesModule,
     CalendarModule,
+    PriceMatrixModule,
     //TemplateModule
     //NO BORRAR LA LINEA DE ARRIBA
   ],

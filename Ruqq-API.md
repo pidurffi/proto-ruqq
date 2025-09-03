@@ -608,6 +608,72 @@ Authorization: Bearer <jwt-token>
 }
 ```
 
+### **📊 Endpoint Principal: Matriz de Precios (NUEVO)**
+```http
+POST /admin/price-matrix/generate
+Content-Type: application/json
+Authorization: Bearer <jwt-token>
+
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-01-31"
+}
+```
+
+**Respuesta: Matriz Completa con Estadísticas**
+```json
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-01-31", 
+  "dateHeaders": ["2025-01-01", "2025-01-02", "2025-01-03", "..."],
+  "rows": [
+    {
+      "roomType": {
+        "id": "uuid-suite-premium",
+        "name": "Suite Premium",
+        "code": "STE_PREM",
+        "baseCapacity": 2,
+        "maxCapacity": 4
+      },
+      "prices": [
+        {
+          "date": "2025-01-01",
+          "price": 350.00,
+          "available": true,
+          "source": "price_rule",
+          "appliedRuleId": "rule-weekend-boost"
+        },
+        {
+          "date": "2025-01-02", 
+          "price": 280.00,
+          "available": true,
+          "source": "base_rate"
+        }
+      ],
+      "averagePrice": 312.50,
+      "minPrice": 280.00,
+      "maxPrice": 450.00
+    }
+  ],
+  "summary": {
+    "totalRoomTypes": 5,
+    "totalDays": 31,
+    "averagePriceAcrossAll": 325.75,
+    "priceRange": {
+      "min": 150.00,
+      "max": 500.00
+    }
+  }
+}
+```
+
+**🎯 Características Clave:**
+- **Motor v2.3 Completo**: Aplica `base_rate_period` + `price_rules` 
+- **Arquitectura Extensible**: Preparado para futuras promociones
+- **Estadísticas Integradas**: Min/Max/Promedio por fila y globales
+- **Source Tracking**: Identifica qué regla aplicó (`base_rate`, `price_rule`, `promotion`)
+- **Visualización Optimizada**: Estructura ideal para frontend (filas=unidades, columnas=fechas)
+
 ### **💰 Endpoint Principal: Generación de Cotizaciones (Público)**
 ```http
 POST /quotes/calculate
@@ -685,6 +751,31 @@ Authorization: Bearer <jwt-token>
 ```http
 GET /admin/base-rate-period?page=0&pageSize=10&roomTypeId=uuid&startDate=2024-01-01&endDate=2024-12-31
 ```
+
+### **📊 Endpoints de Matriz de Precios**
+
+#### **Generar Matriz Completa**
+```http
+POST /admin/price-matrix/generate
+Content-Type: application/json
+Authorization: Bearer <jwt-token>
+
+{
+  "startDate": "2025-01-01", 
+  "endDate": "2025-01-31"
+}
+```
+
+**Casos de Uso:**
+- 📈 **Dashboard Administrativo**: Visualización completa de precios
+- 🎯 **Revenue Management**: Análisis de estrategias de precios
+- 📊 **Reportes Gerenciales**: Estadísticas y tendencias de pricing
+- 🔍 **Debugging del Motor v2.3**: Verificar aplicación de reglas
+
+**Validaciones:**
+- ✅ Rango máximo: 365 días (evita sobrecarga)
+- ✅ Fecha inicio < fecha fin
+- ✅ Solo SUPER_ADMIN tiene acceso
 
 ### **⚡ Endpoints de Reglas de Precio**
 
@@ -1204,6 +1295,38 @@ describe('QuotesService', () => {
 })
 ```
 
+### **Testing Matriz de Precios**
+```typescript
+// Ejemplo de test para PriceMatrixService
+describe('PriceMatrixService', () => {
+  let service: PriceMatrixService
+  let baseRatePeriodRepository: jest.Mocked<BaseRatePeriodRepository>
+  let priceRulesService: jest.Mocked<PriceRulesService>
+
+  describe('generatePriceMatrix', () => {
+    it('should generate complete price matrix with statistics', async () => {
+      // Mock room types and date range
+      const result = await service.generatePriceMatrix({
+        startDate: new Date('2025-01-01'),
+        endDate: new Date('2025-01-31')
+      })
+      
+      expect(result.rows).toHaveLength(5) // 5 room types
+      expect(result.dateHeaders).toHaveLength(31) // 31 days
+      expect(result.summary.totalRoomTypes).toBe(5)
+    })
+    
+    it('should apply Motor v2.3 layers correctly', async () => {
+      // Test base_rate + price_rules integration
+    })
+    
+    it('should handle date range validation', async () => {
+      // Test max 365 days limit
+    })
+  })
+})
+```
+
 ### **Casos de Prueba Recomendados**
 
 #### **1. 📊 Cálculo de Precios**
@@ -1231,7 +1354,15 @@ describe('QuotesService', () => {
 - ✅ Closed to arrival/departure
 - ✅ Capacidad de habitaciones
 
-#### **5. 🌐 Timezone Handling**
+#### **5. 📊 Testing Matriz de Precios**
+- ✅ Generación completa de matriz
+- ✅ Aplicación correcta del Motor v2.3
+- ✅ Estadísticas por fila y globales
+- ✅ Validación de rangos de fecha (máx 365 días)
+- ✅ Source tracking (base_rate vs price_rule)
+- ✅ Manejo de room types sin tarifas
+
+#### **6. 🌐 Timezone Handling**
 - ✅ Fechas en GMT-3 (Argentina)
 - ✅ Cálculo de días de la semana correctos
 - ✅ Iteración sin desfase de fechas
