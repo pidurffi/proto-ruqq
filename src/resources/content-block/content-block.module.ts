@@ -7,11 +7,11 @@ import { AuthModule } from '../../engine/auth/auth.module'
 import { ContentBlockController } from './controllers/content-block.controller'
 import { ContentBlockRepository } from './repositories/content-block.repository'
 import { ContentBlockService } from './services/content-block.service'
-import { ContentBlockProviders } from './providers/content-block.providers'
+import { ContentBlockTenantProviders } from './providers/content-block-tenant.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...ContentBlockProviders, ContentBlockRepository, ContentBlockService],
+  providers: [...ContentBlockTenantProviders, ContentBlockRepository, ContentBlockService],
   controllers: [ContentBlockController],
   exports: [ContentBlockService, ContentBlockRepository],
 })

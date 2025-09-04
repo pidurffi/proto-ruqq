@@ -7,11 +7,11 @@ import { AuthModule } from '../../engine/auth/auth.module'
 import { RestrictionsController } from './controllers/restrictions.controller'
 import { RestrictionsRepository } from './repositories/restrictions.repository'
 import { RestrictionsService } from './services/restrictions.service'
-import { RestrictionsProviders } from './providers/restrictions.providers'
+import { RestrictionsTenantProviders } from './providers/restrictions-tenant.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...RestrictionsProviders, RestrictionsRepository, RestrictionsService],
+  providers: [...RestrictionsTenantProviders, RestrictionsRepository, RestrictionsService],
   controllers: [RestrictionsController],
   exports: [RestrictionsService, RestrictionsRepository],
 })

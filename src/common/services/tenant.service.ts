@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ITenantContext, ITenantService } from '../interfaces/tenant.interface';
 
@@ -11,7 +11,18 @@ export interface ITenantListItem {
 
 @Injectable()
 export class TenantService implements ITenantService {
+  private readonly logger = new Logger(TenantService.name);
   private currentTenant: ITenantContext | null = null;
+  
+  // Lista de tenants válidos - en producción esto vendría de BD
+  private readonly validTenants = new Set([
+    'default',
+    'public', 
+    'tenant_cliente1',
+    'tenant_cliente2',
+    'cliente1',
+    'cliente2'
+  ]);
 
   constructor(
     private readonly configService: ConfigService,
@@ -101,7 +112,7 @@ export class TenantService implements ITenantService {
   }
 
   /**
-   * Validar que un tenant ID sea válido (para crear nuevos tenants)
+   * Validar que un tenant ID sea válido (formato)
    */
   validateTenantId(tenantId: string): { valid: boolean; error?: string } {
     // Regex que coincide con la función de PostgreSQL
@@ -120,5 +131,66 @@ export class TenantService implements ITenantService {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * Validar que un tenant exista en el sistema
+   */
+  tenantExists(tenantId: string): boolean {
+    const schema = this.tenantToSchema(tenantId);
+    const exists = this.validTenants.has(tenantId) || this.validTenants.has(schema);
+    
+    this.logger.debug(`[tenantExists] Checking tenant: ${tenantId} (schema: ${schema}) = ${exists}`);
+    
+    return exists;
+  }
+
+  /**
+   * Validar tenant ID con verificación de existencia
+   */
+  validateAndCheckTenant(tenantId: string): { valid: boolean; error?: string; exists?: boolean } {
+    // Primero validar formato
+    const formatValidation = this.validateTenantId(tenantId);
+    if (!formatValidation.valid) {
+      this.logger.warn(`[validateAndCheckTenant] Invalid format for tenant: ${tenantId} - ${formatValidation.error}`);
+      return formatValidation;
+    }
+
+    // Luego verificar existencia
+    const exists = this.tenantExists(tenantId);
+    if (!exists) {
+      const error = `Tenant '${tenantId}' no existe en el sistema`;
+      this.logger.warn(`[validateAndCheckTenant] ${error}`);
+      return { valid: false, error, exists: false };
+    }
+
+    this.logger.debug(`[validateAndCheckTenant] Tenant ${tenantId} is valid and exists`);
+    return { valid: true, exists: true };
+  }
+
+  /**
+   * Crear contexto de tenant con validación
+   */
+  createValidatedTenantContext(tenantId: string): ITenantContext {
+    const validation = this.validateAndCheckTenant(tenantId);
+    
+    if (!validation.valid) {
+      this.logger.error(`[createValidatedTenantContext] Failed to create context for tenant: ${tenantId} - ${validation.error}`);
+      throw new BadRequestException(validation.error);
+    }
+
+    const schema = this.tenantToSchema(tenantId);
+    const context: ITenantContext = { tenantId, schema };
+    
+    this.logger.log(`[createValidatedTenantContext] Created valid context for tenant: ${tenantId} (schema: ${schema})`);
+    
+    return context;
+  }
+
+  /**
+   * Obtener lista de tenants válidos (para debugging)
+   */
+  getValidTenants(): string[] {
+    return Array.from(this.validTenants);
   }
 }

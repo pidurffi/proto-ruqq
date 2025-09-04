@@ -58,4 +58,62 @@ export class AppController {
       timestamp: new Date().toISOString()
     }
   }
+
+  @Get('tenant-debug')
+  @ApiOperation({ summary: 'Debug tenant system - show validation and available tenants' })
+  getTenantDebug(@Req() req: Request): any {
+    const tenantHeader = req.headers['x-tenant-id'] as string;
+    const host = req.get('host');
+    const currentTenant = this.tenantService.getActiveTenant();
+    const requestTenant = (req as any).tenant;
+    
+    let headerValidation = null;
+    if (tenantHeader) {
+      headerValidation = this.tenantService.validateAndCheckTenant(tenantHeader);
+    }
+    
+    const extractedFromHost = this.tenantService.extractTenantFromSubdomain(host || '');
+    let hostValidation = null;
+    if (extractedFromHost && extractedFromHost !== 'default') {
+      hostValidation = this.tenantService.validateAndCheckTenant(extractedFromHost);
+    }
+    
+    return {
+      message: 'Tenant system debugging information',
+      timestamp: new Date().toISOString(),
+      
+      // Request info
+      request: {
+        tenantHeader,
+        host,
+        extractedFromHost,
+        currentTenant,
+        requestTenant,
+      },
+      
+      // Validations
+      validation: {
+        header: headerValidation,
+        host: hostValidation,
+      },
+      
+      // System info
+      system: {
+        validTenants: this.tenantService.getValidTenants(),
+        defaultTenant: this.tenantService.getDefaultTenant(),
+        environment: process.env.NODE_ENV || 'development',
+      },
+      
+      // Troubleshooting
+      troubleshooting: {
+        'Use X-Tenant-ID header': 'curl -H "X-Tenant-ID: cliente1" http://localhost:3001/api/tenant-debug',
+        'Available tenant IDs': this.tenantService.getValidTenants(),
+        'Schema mapping examples': {
+          'cliente1': this.tenantService.tenantToSchema('cliente1'),
+          'tenant_cliente2': this.tenantService.tenantToSchema('tenant_cliente2'),
+          'default': this.tenantService.tenantToSchema('default'),
+        }
+      }
+    }
+  }
 }

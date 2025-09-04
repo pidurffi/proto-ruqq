@@ -7,11 +7,11 @@ import { AuthModule } from '../../engine/auth/auth.module'
 import { OccupancyRateModifiersController } from './controllers/occupancy-rate-modifiers.controller'
 import { OccupancyRateModifiersRepository } from './repositories/occupancy-rate-modifiers.repository'
 import { OccupancyRateModifiersService } from './services/occupancy-rate-modifiers.service'
-import { OccupancyRateModifiersProviders } from './providers/occupancy-rate-modifiers.providers'
+import { OccupancyRateModifiersTenantProviders } from './providers/occupancy-rate-modifiers-tenant.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...OccupancyRateModifiersProviders, OccupancyRateModifiersRepository, OccupancyRateModifiersService],
+  providers: [...OccupancyRateModifiersTenantProviders, OccupancyRateModifiersRepository, OccupancyRateModifiersService],
   controllers: [OccupancyRateModifiersController],
   exports: [OccupancyRateModifiersService, OccupancyRateModifiersRepository],
 })

@@ -7,11 +7,11 @@ import { AuthModule } from '../../engine/auth/auth.module'
 import { QuoteTemplateController } from './controllers/quote-template.controller'
 import { QuoteTemplateRepository } from './repositories/quote-template.repository'
 import { QuoteTemplateService } from './services/quote-template.service'
-import { QuoteTemplateProviders } from './providers/quote-template.providers'
+import { QuoteTemplateTenantProviders } from './providers/quote-template-tenant.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...QuoteTemplateProviders, QuoteTemplateRepository, QuoteTemplateService],
+  providers: [...QuoteTemplateTenantProviders, QuoteTemplateRepository, QuoteTemplateService],
   controllers: [QuoteTemplateController],
   exports: [QuoteTemplateService, QuoteTemplateRepository],
 })

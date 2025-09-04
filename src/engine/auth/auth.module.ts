@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 
 import { AuthService } from './services/'
 import { AuthProviders } from './providers/auth.providers'
+import { AuthTenantProviders } from './providers/auth-tenant.providers'
 import { JwtStrategy } from './strategies/jwt.strategies'
 import { DatabaseModule } from '../database/database.module'
 import { CommonModule } from '../../common/common.module'
@@ -30,7 +31,8 @@ import { AuthController } from './controllers/auth.controller'
       },
     }),
   ],
-  providers: [...AuthProviders, AuthService, JwtStrategy],
+  // Usar providers tenant-aware en lugar de los tradicionales
+  providers: [...AuthTenantProviders, AuthService, JwtStrategy],
   exports: [DatabaseModule, JwtStrategy, PassportModule, JwtModule, AuthService],
 })
 export class AuthModule {}
