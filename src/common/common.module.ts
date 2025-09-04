@@ -7,6 +7,8 @@ import { ThrottlerModule } from '@nestjs/throttler'
 import mailerConfig from '../config/mailer.config'
 import { PaginationDto, EpGenericErrorDto } from './'
 import { WinstonLoggerService } from './services/winston-logger.service'
+import { TenantService } from './services/tenant.service'
+import { TenantMiddleware } from './middleware/tenant.middleware'
 import { AuditInterceptor } from './interceptors/audit.interceptor'
 import { MailerController } from './mailer/mailer.controller'
 import { MailerService } from './mailer/mailer.service'
@@ -63,6 +65,8 @@ import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
     MailerService,
     WinstonLoggerService,
     AuditInterceptor,
+    TenantService,
+    TenantMiddleware,
   ],
   exports: [
     UploadsConfigService,
@@ -72,6 +76,8 @@ import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
     MailerService,
     WinstonLoggerService,
     AuditInterceptor,
+    TenantService,
+    TenantMiddleware,
   ],
 })
 export class CommonModule {}

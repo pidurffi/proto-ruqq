@@ -1,12 +1,13 @@
 // app.module.ts
 import { join } from 'path'
-import { Module } from '@nestjs/common'
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ServeStaticModule } from '@nestjs/serve-static'
 
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { CommonModule } from './common/common.module'
+import { TenantMiddleware } from './common/middleware/tenant.middleware'
 import { AuthModule } from './engine/auth/auth.module'
 import { DatabaseModule } from './engine/database/database.module'
 
@@ -84,4 +85,11 @@ const loadJsonConfig = () => {
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Aplicar el middleware de tenant a todas las rutas
+    consumer
+      .apply(TenantMiddleware)
+      .forRoutes('*');
+  }
+}
