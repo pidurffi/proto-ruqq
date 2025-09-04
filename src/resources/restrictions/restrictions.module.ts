@@ -11,8 +11,8 @@ import { RestrictionsProviders } from './providers/restrictions.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...RestrictionsProviders, RestrictionsRepository, RestrictionsService, RestrictionsRepository],
+  providers: [...RestrictionsProviders, RestrictionsRepository, RestrictionsService],
   controllers: [RestrictionsController],
-  exports: [RestrictionsService],
+  exports: [RestrictionsService, RestrictionsRepository],
 })
 export class RestrictionsModule {}

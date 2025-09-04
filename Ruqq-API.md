@@ -1454,6 +1454,440 @@ El sistema está **listo para producción** con:
 
 ---
 
+## 🌐 Sistema Multi-Tenant
+
+### **Resumen Ejecutivo**
+Ruqq implementa un sistema multi-tenant completo utilizando PostgreSQL schemas separados por cliente/hotel, permitiendo aislamiento total de datos mientras se mantiene una única instancia de la aplicación.
+
+### **Arquitectura Multi-Tenant**
+
+#### **Stack Tecnológico**
+```
+┌─────────────────┐
+│ Nginx (Proxy)   │ → Procesa subdominios y añade headers
+└─────────────────┘
+         │ X-Tenant-ID
+┌─────────────────┐
+│ TenantMiddleware│ → Establece contexto de tenant por request
+└─────────────────┘
+         │ ITenantContext  
+┌─────────────────┐
+│ NestJS App      │ → APIs con contexto tenant-aware
+└─────────────────┘
+         │ Schema dinámico
+┌─────────────────┐
+│ PostgreSQL      │ → Schemas: public, tenant_cliente1, tenant_hotel_abc
+└─────────────────┘
+```
+
+### **Componentes Implementados**
+
+#### **1. Interfaces y Servicios Base**
+
+##### **ITenantContext Interface**
+```typescript
+export interface ITenantContext {
+  tenantId: string
+  schema: string
+}
+
+export interface ITenant {
+  getTenantContext(): ITenantContext | null
+  setTenantContext(context: ITenantContext): void
+}
+```
+
+##### **TenantService**
+```typescript
+@Injectable({ scope: Scope.REQUEST })
+export class TenantService implements ITenant {
+  private tenantContext: ITenantContext | null = null
+
+  getTenantContext(): ITenantContext | null {
+    return this.tenantContext
+  }
+
+  setTenantContext(context: ITenantContext): void {
+    this.tenantContext = context
+    console.log(`[TenantService] Context set:`, context)
+  }
+
+  getActiveTenant(): ITenantContext {
+    return this.tenantContext || { tenantId: 'default', schema: 'public' }
+  }
+
+  async ensureSchemaExists(schemaName: string): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner()
+    try {
+      await queryRunner.connect()
+      const exists = await this.schemaExists(queryRunner, schemaName)
+      
+      if (!exists) {
+        await queryRunner.query(`SELECT create_tenant_schema('${schemaName}')`)
+        console.log(`[TenantService] Created schema: ${schemaName}`)
+      }
+    } finally {
+      await queryRunner.release()
+    }
+  }
+}
+```
+
+#### **2. Middleware de Detección**
+
+##### **TenantMiddleware**
+```typescript
+@Injectable()
+export class TenantMiddleware implements NestMiddleware {
+  constructor(
+    @Inject(TenantService) private readonly tenantService: TenantService,
+  ) {}
+
+  use(req: Request & { tenant?: ITenantContext }, res: Response, next: NextFunction) {
+    let tenantId = 'default'
+    let detectedFrom = 'default'
+
+    // Prioridad 1: Header X-Tenant-ID
+    const headerTenantId = req.headers['x-tenant-id'] as string
+    if (headerTenantId) {
+      tenantId = headerTenantId
+      detectedFrom = 'header'
+      console.log(`[TenantMiddleware] Using tenant from X-Tenant-ID header: ${tenantId}`)
+    }
+
+    // Prioridad 2: Subdominio
+    if (tenantId === 'default') {
+      const host = req.headers.host || ''
+      const subdomain = host.split('.')[0]
+      
+      if (subdomain && subdomain !== 'localhost' && subdomain !== 'www') {
+        tenantId = `tenant_${subdomain.replace(/-/g, '_')}`
+        detectedFrom = 'subdomain'
+        console.log(`[TenantMiddleware] Using tenant from subdomain: ${tenantId}`)
+      }
+    }
+
+    // Establecer contexto
+    const tenantContext: ITenantContext = {
+      tenantId,
+      schema: tenantId === 'default' ? 'public' : tenantId
+    }
+
+    this.tenantService.setTenantContext(tenantContext)
+    req.tenant = tenantContext
+
+    console.log(`[TenantMiddleware] Set tenant context:`, tenantContext)
+    
+    next()
+  }
+}
+```
+
+#### **3. Base de Datos Multi-Schema**
+
+##### **Migración PostgreSQL**
+```sql
+-- Función para crear nuevo tenant
+CREATE OR REPLACE FUNCTION create_tenant_schema(tenant_id TEXT)
+RETURNS TEXT AS $$
+BEGIN
+  -- Crear schema
+  EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', tenant_id);
+  
+  -- Clonar estructura del schema public
+  PERFORM clone_schema_structure('public', tenant_id);
+  
+  -- Registrar en log
+  INSERT INTO public.tenant_creation_log (tenant_id, status)
+  VALUES (tenant_id, 'active');
+  
+  RETURN format('Tenant schema %s created successfully', tenant_id);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Función para clonar estructura
+CREATE OR REPLACE FUNCTION clone_schema_structure(source_schema TEXT, target_schema TEXT)
+RETURNS void AS $$
+DECLARE
+  object_record RECORD;
+  create_statement TEXT;
+BEGIN
+  -- Clonar tablas
+  FOR object_record IN
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = source_schema
+    AND table_type = 'BASE TABLE'
+    AND table_name NOT IN ('typeorm_metadata', 'tenant_creation_log')
+  LOOP
+    create_statement := format('CREATE TABLE %I.%I (LIKE %I.%I INCLUDING ALL)',
+      target_schema, object_record.table_name,
+      source_schema, object_record.table_name);
+    EXECUTE create_statement;
+  END LOOP;
+  
+  -- Clonar índices, constraints, etc.
+  -- [código adicional de clonado]
+END;
+$$ LANGUAGE plpgsql;
+```
+
+##### **Tabla de Control de Tenants**
+```sql
+CREATE TABLE IF NOT EXISTS public.tenant_creation_log (
+  id SERIAL PRIMARY KEY,
+  tenant_id VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status VARCHAR(50) DEFAULT 'active',
+  metadata JSONB
+);
+```
+
+#### **4. Repositorios Tenant-Aware**
+
+##### **Factory de Repositorios Multi-Tenant**
+```typescript
+export function createTenantRepositoryProvider<T>(
+  repositoryToken: string,
+  entityClass: Type<T>
+): Provider {
+  return {
+    provide: repositoryToken,
+    useFactory: async (
+      tenantService: TenantService,
+      dataSource: DataSource
+    ) => {
+      // Crear proxy que intercepta operaciones del repositorio
+      return createTenantAwareRepository(dataSource, tenantService, entityClass)
+    },
+    inject: [TenantService, resources.DATA_SOURCE_POSTGRES],
+  }
+}
+```
+
+##### **Repositorio con Proxy Pattern**
+```typescript
+function createTenantAwareRepository(dataSource: DataSource, tenantService: TenantService, Entity: any) {
+  return new Proxy(dataSource.getRepository(Entity), {
+    get(target, prop, receiver) {
+      // Interceptar métodos de consulta
+      if (typeof target[prop] === 'function' && 
+          ['find', 'findOne', 'findBy', 'findOneBy', 'save', 'create', 'update', 'delete', 'remove', 'createQueryBuilder'].includes(prop as string)) {
+        
+        return function(...args: any[]) {
+          const tenantContext = tenantService.getActiveTenant()
+          console.log(`[TenantRepository] Executing ${String(prop)} on schema: ${tenantContext.schema}`)
+          
+          // Para schema public, usar comportamiento por defecto
+          if (tenantContext.schema === 'public') {
+            return target[prop].apply(target, args)
+          }
+          
+          // Para createQueryBuilder, cambiar el schema
+          if (prop === 'createQueryBuilder') {
+            const queryBuilder = target.createQueryBuilder.apply(target, args)
+            const tableName = target.metadata.tableName
+            queryBuilder.from(`${tenantContext.schema}.${tableName}`, args[0] || tableName)
+            return queryBuilder
+          }
+          
+          // Para otros métodos, crear QueryRunner con schema específico
+          return dataSource.transaction(async manager => {
+            await manager.query(`SET search_path TO ${tenantContext.schema}`)
+            const repoWithSchema = manager.getRepository(Entity)
+            return repoWithSchema[prop].apply(repoWithSchema, args)
+          })
+        }
+      }
+      
+      return Reflect.get(target, prop, receiver)
+    }
+  })
+}
+```
+
+### **Configuración Nginx**
+
+#### **Mapeo de Subdominios**
+```nginx
+# /etc/nginx/sites-available/ruqq-multitenant
+
+# Mapeo de subdominios a tenant IDs
+map $http_host $tenant_id {
+    default              "default";
+    
+    # Formato: subdomain.domain.com -> tenant_subdomain
+    ~^(?<subdomain>[^.]+)\..*$  "tenant_$subdomain";
+}
+
+server {
+    listen 80;
+    server_name *.tudominio.com tudominio.com;
+    
+    location / {
+        # Añadir header X-Tenant-ID basado en el subdominio
+        proxy_set_header X-Tenant-ID $tenant_id;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Proxy a la aplicación NestJS
+        proxy_pass http://localhost:3001;
+        
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+### **Flujo de Funcionamiento**
+
+1. **Request Entrante**
+   - Cliente accede a `cliente1.tudominio.com/api/quotes/calculate`
+   - Nginx detecta el subdominio `cliente1`
+   - Añade header `X-Tenant-ID: tenant_cliente1`
+
+2. **Procesamiento en NestJS**
+   - `TenantMiddleware` intercepta la request
+   - Extrae `tenant_cliente1` del header
+   - Establece contexto: `{ tenantId: 'tenant_cliente1', schema: 'tenant_cliente1' }`
+
+3. **Ejecución de Consultas**
+   - Repositorios usan el schema `tenant_cliente1`
+   - Todas las operaciones de DB se ejecutan en ese schema
+   - Aislamiento completo de datos
+
+4. **Respuesta**
+   - Datos específicos del tenant se devuelven
+   - Contexto se limpia al finalizar la request
+
+### **Testing del Sistema Multi-Tenant**
+
+#### **Verificación de Tenant por Defecto**
+```bash
+curl http://localhost:3001/api/tenant-info
+
+# Respuesta:
+{
+  "message": "Multi-tenant system is working!",
+  "currentTenant": {
+    "tenantId": "default",
+    "schema": "public"
+  }
+}
+```
+
+#### **Verificación con Tenant Específico**
+```bash
+curl -H "X-Tenant-ID: tenant_hotel1" http://localhost:3001/api/tenant-info
+
+# Respuesta:
+{
+  "message": "Multi-tenant system is working!",
+  "currentTenant": {
+    "tenantId": "tenant_hotel1",
+    "schema": "tenant_hotel1"
+  }
+}
+```
+
+#### **API Real con Tenant**
+```bash
+curl -X POST http://localhost:3001/api/quotes/calculate \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: tenant_hotel_abc" \
+  -d '{"pax": 2, "checkInDate": "2025-03-01", "checkOutDate": "2025-03-05"}'
+
+# Respuesta con datos específicos del tenant_hotel_abc
+```
+
+### **Gestión de Tenants**
+
+#### **Crear Nuevo Tenant**
+```sql
+-- Ejecutar en PostgreSQL
+SELECT create_tenant_schema('tenant_nuevo_hotel');
+```
+
+#### **Listar Tenants Activos**
+```sql
+SELECT * FROM public.tenant_creation_log WHERE status = 'active';
+```
+
+#### **Eliminar Tenant**
+```sql
+-- Soft delete (marcar como inactivo)
+SELECT delete_tenant_schema('tenant_hotel_xyz', false);
+
+-- Hard delete (eliminar schema completamente)
+SELECT delete_tenant_schema('tenant_hotel_xyz', true);
+```
+
+### **Variables de Entorno Multi-Tenant**
+```bash
+# .env
+MULTI_TENANT_ENABLED=true
+DEFAULT_TENANT_ID=default
+DEFAULT_TENANT_SCHEMA=public
+TENANT_HEADER_NAME=x-tenant-id
+```
+
+### **Consideraciones de Seguridad**
+
+1. **Validación de Tenant ID**
+   - Solo permitir caracteres alfanuméricos y guiones bajos
+   - Prevenir SQL injection en nombres de schema
+
+2. **Aislamiento de Datos**
+   - Cada tenant tiene su propio schema PostgreSQL
+   - No hay acceso cruzado entre schemas
+
+3. **Rate Limiting**
+   - Implementar límites por tenant
+   - Prevenir abuso de recursos
+
+4. **Audit Logs**
+   - Registrar todas las operaciones por tenant
+   - Trazabilidad completa de acciones
+
+### **Estado Actual de Implementación**
+
+#### **✅ Completado**
+- Sistema de detección de tenants (headers y subdominios)
+- Middleware de procesamiento de contexto
+- Migraciones de base de datos multi-schema
+- Funciones PostgreSQL para gestión de tenants
+- Factory de repositorios tenant-aware
+- Configuración Nginx para subdominios
+- Testing y validación del sistema
+
+#### **⚠️ Recomendaciones para Producción**
+1. Activar repositorios tenant-aware en todos los módulos
+2. Implementar cache por tenant
+3. Añadir métricas y monitoring por tenant
+4. Crear dashboard de administración de tenants
+5. Implementar backup y restore por tenant
+
+### **Comandos Útiles**
+```bash
+# Ejecutar migraciones
+npm run db:migrate
+
+# Ver logs con información de tenant
+tail -f logs/app.log | grep TenantMiddleware
+
+# Verificar schemas en PostgreSQL
+psql -d ruqq_db -c "SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'tenant_%';"
+
+# Test manual con curl
+curl -H "X-Tenant-ID: tenant_demo" http://localhost:3001/api/tenant-info
+```
+
+---
+
 *Documentación técnica completa - Ruqq Hotel Management System*  
-*Generado el 2025-01-03 - Motor de Precios v2.3*  
-*Sistema de gestión hotelera integral con arquitectura empresarial*
+*Actualizado el 2025-01-04 - Motor de Precios v2.3 con Multi-Tenancy*  
+*Sistema de gestión hotelera integral con arquitectura empresarial multi-tenant*

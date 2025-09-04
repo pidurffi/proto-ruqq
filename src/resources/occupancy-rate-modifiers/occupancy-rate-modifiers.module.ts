@@ -11,8 +11,8 @@ import { OccupancyRateModifiersProviders } from './providers/occupancy-rate-modi
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...OccupancyRateModifiersProviders, OccupancyRateModifiersRepository, OccupancyRateModifiersService, OccupancyRateModifiersRepository],
+  providers: [...OccupancyRateModifiersProviders, OccupancyRateModifiersRepository, OccupancyRateModifiersService],
   controllers: [OccupancyRateModifiersController],
-  exports: [OccupancyRateModifiersService],
+  exports: [OccupancyRateModifiersService, OccupancyRateModifiersRepository],
 })
 export class OccupancyRateModifiersModule {}

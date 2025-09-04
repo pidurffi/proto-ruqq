@@ -40,4 +40,22 @@ export class AppController {
   // ========================================
   // NOTA: Endpoints temporalmente deshabilitados hasta resolver dependencias circulares
   // Los endpoints de gestión de tenants se implementarán en un módulo dedicado
+
+  // ========================================
+  // TESTING TENANT REPOSITORIES
+  // ========================================
+  @Get('test-tenant-repo')
+  @ApiOperation({ summary: 'Test tenant-aware repository (temporary endpoint for testing)' })
+  async testTenantRepository(@Req() req: Request): Promise<any> {
+    const currentTenant = this.tenantService.getActiveTenant()
+    const requestTenant = (req as any).tenant
+    
+    return {
+      message: 'Testing tenant-aware repository functionality',
+      currentTenant,
+      requestTenant,
+      note: 'This endpoint tests the tenant repository context without database queries',
+      timestamp: new Date().toISOString()
+    }
+  }
 }

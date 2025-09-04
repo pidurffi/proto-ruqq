@@ -11,8 +11,8 @@ import { RoomTypeProviders } from './providers/room-type.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...RoomTypeProviders, RoomTypeRepository, RoomTypeService, RoomTypeRepository],
+  providers: [...RoomTypeProviders, RoomTypeRepository, RoomTypeService],
   controllers: [RoomTypeController],
-  exports: [RoomTypeService],
+  exports: [RoomTypeService, RoomTypeRepository],
 })
 export class RoomTypeModule {}

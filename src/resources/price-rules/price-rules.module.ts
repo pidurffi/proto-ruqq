@@ -8,11 +8,13 @@ import { PriceRulesController } from './controllers/price-rules.controller'
 import { PriceRulesRepository } from './repositories/price-rules.repository'
 import { PriceRulesService } from './services/price-rules.service'
 import { PriceRulesProviders } from './providers/price-rules.providers'
+import { PriceRulesTenantProviders } from './providers/price-rules-tenant.providers'
 
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
-  providers: [...PriceRulesProviders, PriceRulesRepository, PriceRulesService, PriceRulesRepository],
+  // Usar providers tenant-aware en lugar de los tradicionales
+  providers: [...PriceRulesTenantProviders, PriceRulesRepository, PriceRulesService],
   controllers: [PriceRulesController],
-  exports: [PriceRulesService],
+  exports: [PriceRulesService, PriceRulesRepository],
 })
 export class PriceRulesModule {}

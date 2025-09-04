@@ -11,6 +11,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common'
 import {
@@ -21,6 +22,7 @@ import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger'
@@ -45,6 +47,23 @@ export class BaseRatePeriodController extends BaseController<BaseRatePeriod> {
 
   getService(): BaseRatePeriodService {
     return this.service
+  }
+
+  @Get('/test-tenant')
+  @ApiOperation({ summary: 'Test tenant-aware repository (TEMPORARY - for testing only)' })
+  async testTenantAware(@Req() req: any) {
+    // Este endpoint es temporal para probar el sistema tenant-aware
+    const tenantInfo = req.tenant
+    const result = await this.getService().findAllWithFilterPaginated({ page: 1, pageSize: 10 })
+    
+    return {
+      message: 'Testing tenant-aware repository',
+      tenant: tenantInfo,
+      dataCount: result.data?.length || 0,
+      totalCount: result.total || 0,
+      data: result.data?.slice(0, 2) || [], // Solo los primeros 2 registros para la prueba
+      note: 'This endpoint is temporary and will be removed'
+    }
   }
 
   @Get('/')
