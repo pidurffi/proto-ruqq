@@ -163,6 +163,22 @@ export class PriceRule extends EntityBase {
   })
   adjustmentValue: number
 
+  @Column({ 
+    type: 'varchar', 
+    nullable: true, 
+    name: 'promotion_name',
+    comment: 'Nombre de la promoción (opcional, para diferenciación semántica en frontend)'
+  })
+  promotionName?: string
+
+  @Column({ 
+    type: 'varchar', 
+    nullable: true, 
+    name: 'promotion_description',
+    comment: 'Descripción de la promoción (opcional, para contexto adicional)'
+  })
+  promotionDescription?: string
+
   @ManyToOne(() => RoomType)
   @JoinColumn({ name: 'room_type_id' })
   roomType: RoomType
@@ -791,7 +807,9 @@ Content-Type: application/json
   "daysOfWeek": [6, 7],
   "priority": 1,
   "adjustmentType": "percentage", 
-  "adjustmentValue": 25.0
+  "adjustmentValue": 25.0,
+  "promotionName": "Fin de Semana Premium",
+  "promotionDescription": "25% incremento en fines de semana"
 }
 ```
 
@@ -807,8 +825,18 @@ Content-Type: application/json
   "daysOfWeek": [6, 7],
   "adjustmentType": "percentage",
   "adjustmentValue": 25.0,
-  "priority": 0
+  "priority": 0,
+  "promotionName": "Descuento Primavera 2024",
+  "promotionDescription": "25% descuento en múltiples tipos de habitación"
 }
+```
+
+#### **Filtrar Solo Promociones**
+```http
+GET /admin/price-rules?promotionsOnly=true&page=0&pageSize=10
+Authorization: Bearer <jwt-token>
+
+# Respuesta: Solo price-rules que tienen promotionName definido
 ```
 
 ### **🔍 Preview de Cambios**
@@ -1009,7 +1037,9 @@ npm run db:createEmpty -- NombreMigracion
   "endDate": "2024-12-31",
   "daysOfWeek": [6, 7],
   "adjustmentType": "percentage",
-  "adjustmentValue": 25.0
+  "adjustmentValue": 25.0,
+  "promotionName": "Premium Weekend",
+  "promotionDescription": "Incremento de fin de semana para suites y habitaciones dobles"
 }
 ```
 **Resultado**: Todos los sábados y domingos del año tendrán 25% de incremento sobre el precio base.
@@ -1022,7 +1052,9 @@ npm run db:createEmpty -- NombreMigracion
   "endDate": "2024-03-31", 
   "daysOfWeek": [2, 3, 4],
   "adjustmentType": "fixed_amount", 
-  "adjustmentValue": -1000.0
+  "adjustmentValue": -1000.0,
+  "promotionName": "Descuento Entre Semana Marzo",
+  "promotionDescription": "Promoción especial para aumentar ocupación entre semana"
 }
 ```
 **Resultado**: Martes, miércoles y jueves de marzo tienen $1,000 de descuento.
@@ -1035,7 +1067,9 @@ npm run db:createEmpty -- NombreMigracion
   "endDate": "2024-12-31",
   "daysOfWeek": [1, 2, 3, 4, 5, 6, 7],
   "adjustmentType": "fixed_price",
-  "adjustmentValue": 18000.0
+  "adjustmentValue": 18000.0,
+  "promotionName": "Fin de Año 2024",
+  "promotionDescription": "Precio especial fijo para últimas dos semanas del año"
 }
 ```
 **Resultado**: Toda la última semana de diciembre tiene precio fijo de $18,000 por noche.
@@ -1376,22 +1410,27 @@ describe('PriceMatrixService', () => {
 - ✅ Split inteligente para base_rate_period y price_rules
 - ✅ Consolidación automática de períodos/reglas consecutivas
 - ✅ Sistema de reglas de precio por días de la semana
+- ✅ **Sistema de promociones integrado** (campos `promotionName` y `promotionDescription`)
+- ✅ **Diferenciación semántica** en frontend (price-rules vs promociones)
+- ✅ **Filtrado de promociones** con parámetro `promotionsOnly`
 - ✅ Modificadores de ocupación dinámicos
 - ✅ Restricciones de reserva (min/max stay, closed dates)
 - ✅ API RESTful completa con documentación Swagger
 - ✅ Sistema de autenticación JWT con RBAC
 - ✅ Generador automático de módulos CRUD
 - ✅ Manejo seguro de fechas (timezone GMT-3)
+- ✅ **Sistema multi-tenant** completo con aislamiento por schemas
 
 ### **Próximas Funcionalidades**
 - 🔄 Integración completa con BaseRatePeriodService para casos de 7 días
-- 📊 Dashboard de visualización de reglas activas
-- 🎯 Sistema de templates para reglas frecuentes  
+- 📊 Dashboard de visualización de reglas activas y promociones
+- 🎯 Sistema de templates para reglas/promociones frecuentes  
 - 📱 Notificaciones de conflictos de reglas
 - 🧮 Simulador avanzado de precios con múltiples escenarios
-- 📈 Analytics de revenue e impacto de reglas
+- 📈 Analytics de revenue e impacto de promociones
 - 🔍 Motor de búsqueda avanzada de disponibilidad
-- 💰 Sistema de descuentos y promociones automáticas
+- 💰 **Sistema de promociones avanzadas** (códigos de descuento, límites de uso)
+- 🎨 **Generador visual de promociones** para frontend Angular
 
 ### **Optimizaciones Futuras**
 - 🚀 Cache Redis para consultas frecuentes de tarifas
@@ -1888,6 +1927,132 @@ curl -H "X-Tenant-ID: tenant_demo" http://localhost:3001/api/tenant-info
 
 ---
 
+## 🏷️ Sistema de Promociones
+
+### **Implementación Completada**
+
+El sistema de promociones está **completamente funcional** utilizando la infraestructura existente de `price-rules` con diferenciación semántica en el frontend.
+
+### **Arquitectura de Promociones**
+
+#### **Backend: Una sola API unificada**
+```typescript
+// API única para price-rules Y promociones
+POST /api/price-rules  // Usado por ambos: "Edición Múltiple" y "Crear Promociones"
+```
+
+#### **Frontend: Dos experiencias diferentes**
+
+##### **1. "Edición Múltiple" (Calendar-driven)**
+```typescript
+// Sin campos promocionales
+{
+  roomTypeIds: ["uuid1", "uuid2"],
+  startDate: "2025-03-01",
+  endDate: "2025-03-31", 
+  daysOfWeek: [6, 7],
+  adjustmentType: "PERCENTAGE",
+  adjustmentValue: 20
+  // promotionName y promotionDescription = undefined
+}
+```
+
+##### **2. "Crear Promociones" (Form-driven)**  
+```typescript
+// Con campos promocionales
+{
+  roomTypeId: "uuid1",
+  startDate: "2025-03-01",
+  endDate: "2025-03-31",
+  daysOfWeek: [6, 7], 
+  adjustmentType: "PERCENTAGE",
+  adjustmentValue: -15,
+  promotionName: "Descuento Primavera",
+  promotionDescription: "15% off en fines de semana durante toda la primavera"
+}
+```
+
+### **Filtrado y Consultas**
+
+#### **Obtener todas las reglas:**
+```http
+GET /api/price-rules
+```
+
+#### **Obtener solo promociones:**
+```http
+GET /api/price-rules?promotionsOnly=true
+```
+
+#### **Búsqueda en nombres de promoción:**
+```http
+GET /api/price-rules?search=Primavera
+# Busca en roomType.name, roomType.code Y promotionName
+```
+
+### **Beneficios de esta Arquitectura**
+
+#### **✅ Ventajas Técnicas**
+- **Cero duplicación de código**: Una sola API para ambos casos
+- **Motor v2.3 unificado**: Mismo algoritmo de cálculo  
+- **Performance idéntico**: Sin overhead adicional
+- **Mantenimiento simplificado**: Un solo endpoint que mantener
+
+#### **✅ Ventajas de Negocio**
+- **UX diferenciada**: Experiencias específicas por contexto
+- **Reportes separados**: Filtrar promociones vs reglas operativas
+- **Flexibilidad**: Reglas pueden convertirse en promociones agregando nombre
+- **Escalabilidad**: Base sólida para promociones avanzadas futuras
+
+### **Casos de Uso Promocionales**
+
+#### **Promoción de Temporada**
+```json
+{
+  "roomTypeIds": ["suite-deluxe", "suite-premium"],
+  "startDate": "2025-06-01",
+  "endDate": "2025-08-31", 
+  "daysOfWeek": [6, 7],
+  "adjustmentType": "PERCENTAGE",
+  "adjustmentValue": -20,
+  "promotionName": "Verano 2025",
+  "promotionDescription": "20% descuento en suites durante el verano"
+}
+```
+
+#### **Promoción de Lanzamiento**
+```json
+{
+  "roomTypeId": "nueva-suite-presidential",
+  "startDate": "2025-01-01",
+  "endDate": "2025-01-31",
+  "daysOfWeek": [1, 2, 3, 4, 5, 6, 7],
+  "adjustmentType": "FIXED_PRICE",
+  "adjustmentValue": 15000,
+  "promotionName": "Lanzamiento Suite Presidential",
+  "promotionDescription": "Precio especial de lanzamiento para nueva suite"
+}
+```
+
+### **Estado Actual**
+
+#### **✅ Completado**
+- Entity `PriceRule` con campos `promotionName` y `promotionDescription`
+- DTOs actualizados para soportar campos promocionales
+- Repository con filtrado `promotionsOnly`
+- Migración de base de datos aplicada
+- Búsqueda extendida que incluye nombres de promoción
+
+#### **🎯 Listo para Frontend**
+El backend está **100% preparado** para que el frontend Angular 20 implemente:
+
+1. **Sección "Edición Múltiple"** → Llama a `/api/price-rules` sin campos promocionales
+2. **Sección "Crear Promociones"** → Llama a `/api/price-rules` con `promotionName`/`promotionDescription`
+3. **Lista de Promociones** → GET `/api/price-rules?promotionsOnly=true`
+4. **Dashboard de Análisis** → Métricas separadas por tipo de regla
+
+---
+
 *Documentación técnica completa - Ruqq Hotel Management System*  
-*Actualizado el 2025-01-04 - Motor de Precios v2.3 con Multi-Tenancy*  
+*Actualizado el 2025-01-04 - Motor de Precios v2.3 con Multi-Tenancy y Sistema de Promociones*  
 *Sistema de gestión hotelera integral con arquitectura empresarial multi-tenant*

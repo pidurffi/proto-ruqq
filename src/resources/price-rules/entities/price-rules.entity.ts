@@ -45,6 +45,22 @@ export class PriceRule extends EntityBase {
   })
   adjustmentValue: number
 
+  @Column({ 
+    type: 'varchar', 
+    nullable: true, 
+    name: 'promotion_name',
+    comment: 'Nombre de la promoción (opcional, para diferenciación semántica en frontend)'
+  })
+  promotionName?: string
+
+  @Column({ 
+    type: 'varchar', 
+    nullable: true, 
+    name: 'promotion_description',
+    comment: 'Descripción de la promoción (opcional, para contexto adicional)'
+  })
+  promotionDescription?: string
+
   @ManyToOne(() => RoomType)
   @JoinColumn({ name: 'room_type_id' })
   roomType: RoomType

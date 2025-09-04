@@ -11,4 +11,13 @@ export class PriceRulesQueryDto extends RequestPaginationDto {
   @IsString()
   @IsOptional()
   search?: string
+
+  @ApiProperty({
+    description: 'Filtrar solo promociones (price rules con promotionName)',
+    required: false,
+    example: 'true'
+  })
+  @IsOptional()
+  @IsString()
+  promotionsOnly?: string
 }

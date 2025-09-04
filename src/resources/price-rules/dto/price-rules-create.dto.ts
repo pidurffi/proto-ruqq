@@ -62,6 +62,24 @@ export class CreatePriceRuleDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   adjustmentValue: number
+
+  @ApiProperty({ 
+    description: 'Nombre de la promoción (opcional, para diferenciación semántica)',
+    example: 'Descuento Primavera 2025',
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  promotionName?: string
+
+  @ApiProperty({ 
+    description: 'Descripción de la promoción (opcional, para contexto adicional)',
+    example: '15% de descuento en fines de semana durante toda la temporada primaveral',
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  promotionDescription?: string
 }
 
 export class BulkCreatePriceRuleDto {
@@ -125,4 +143,22 @@ export class BulkCreatePriceRuleDto {
   @Min(0)
   @IsOptional()
   priority?: number
+
+  @ApiProperty({ 
+    description: 'Nombre de la promoción (opcional, para diferenciación semántica)',
+    example: 'Descuento Primavera 2025',
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  promotionName?: string
+
+  @ApiProperty({ 
+    description: 'Descripción de la promoción (opcional, para contexto adicional)',
+    example: '15% de descuento en fines de semana durante toda la temporada primaveral',
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  promotionDescription?: string
 }

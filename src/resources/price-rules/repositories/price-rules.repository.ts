@@ -19,7 +19,7 @@ export class PriceRulesRepository extends Repository<PriceRule> {
   }
 
   async findByFiltersPaginated(payload: PriceRulesQueryDto) {
-    const { page, pageSize, search } = payload
+    const { page, pageSize, search, promotionsOnly } = payload
 
     const pageNumber = page ?? 0
     const take = pageSize ?? 10
@@ -28,9 +28,14 @@ export class PriceRulesRepository extends Repository<PriceRule> {
       .leftJoinAndSelect('pr.roomType', 'rt')
 
     if (search) {
-      query.andWhere('rt.name ILIKE :search OR rt.code ILIKE :search', {
-        search: `%${search}%`,
-      })
+      query.andWhere(
+        'rt.name ILIKE :search OR rt.code ILIKE :search OR pr.promotionName ILIKE :search', 
+        { search: `%${search}%` }
+      )
+    }
+
+    if (promotionsOnly === 'true') {
+      query.andWhere('pr.promotionName IS NOT NULL')
     }
 
     const [data, total] = await query.take(take).skip(skip).getManyAndCount()
