@@ -1,5 +1,6 @@
 import { Controller, Get, Req } from '@nestjs/common'
 import { Request } from 'express'
+import { ApiOperation } from '@nestjs/swagger'
 
 import { AppService } from './app.service'
 import { TenantService } from './common/services/tenant.service'
@@ -17,6 +18,7 @@ export class AppController {
   }
 
   @Get('tenant-info')
+  @ApiOperation({ summary: 'Get current tenant information' })
   getTenantInfo(@Req() req: Request): any {
     const currentTenant = this.tenantService.getActiveTenant()
     const requestTenant = (req as any).tenant
@@ -32,4 +34,10 @@ export class AppController {
       extractedFromHost: this.tenantService.extractTenantFromSubdomain(req.get('host') || ''),
     }
   }
+
+  // ========================================
+  // GESTIÓN DE TENANTS
+  // ========================================
+  // NOTA: Endpoints temporalmente deshabilitados hasta resolver dependencias circulares
+  // Los endpoints de gestión de tenants se implementarán en un módulo dedicado
 }

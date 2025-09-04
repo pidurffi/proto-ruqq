@@ -4,6 +4,8 @@ import { ConsoleLogger, Module } from '@nestjs/common'
 import { MailerModule } from '@nestjs-modules/mailer'
 import { ThrottlerModule } from '@nestjs/throttler'
 
+import { DatabaseModule } from '../engine/database/database.module'
+
 import mailerConfig from '../config/mailer.config'
 import { PaginationDto, EpGenericErrorDto } from './'
 import { WinstonLoggerService } from './services/winston-logger.service'
@@ -17,6 +19,7 @@ import { UploadsConfigService } from './uploads-handle/uploads-handle.config'
 
 @Module({
   imports: [
+    DatabaseModule,
     ConfigModule.forFeature(mailerConfig),
     MailerModule.forRootAsync({
       imports: [ConfigModule.forFeature(mailerConfig)],

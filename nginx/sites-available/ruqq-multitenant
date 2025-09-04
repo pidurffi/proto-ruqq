@@ -1,0 +1,90 @@
+# Configuración Nginx para Multi-Tenant Ruqq
+# Archivo: /etc/nginx/sites-available/ruqq-multitenant
+
+# Servidor principal - captura todos los subdominios
+server {
+    listen 80;
+    server_name *.tudominio.com *.midominio.com localhost;
+    
+    # Logs específicos para debugging
+    access_log /var/log/nginx/ruqq-multitenant.access.log;
+    error_log /var/log/nginx/ruqq-multitenant.error.log;
+    
+    # Configuración para extraer tenant del subdominio
+    location / {
+        # Extraer el subdominio y convertirlo a tenant_id
+        set $tenant_id "default";
+        
+        # Si el host tiene subdominio, extraerlo
+        if ($host ~ ^([^.]+)\.(.+)$) {
+            set $subdomain $1;
+            set $domain $2;
+            set $tenant_id "tenant_$subdomain";
+        }
+        
+        # Si es www, usar tenant por defecto
+        if ($subdomain = "www") {
+            set $tenant_id "default";
+        }
+        
+        # Proxy al backend NestJS
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # CLAVE: Pasar el tenant_id como header personalizado
+        proxy_set_header X-Tenant-ID $tenant_id;
+        
+        proxy_cache_bypass $http_upgrade;
+        proxy_buffering off;
+    }
+    
+    # Configuración adicional para archivos estáticos si los hay
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        
+        # También pasar tenant para archivos estáticos
+        set $tenant_id "default";
+        if ($host ~ ^([^.]+)\.(.+)$) {
+            set $subdomain $1;
+            set $tenant_id "tenant_$subdomain";
+        }
+        if ($subdomain = "www") {
+            set $tenant_id "default";
+        }
+        
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header X-Tenant-ID $tenant_id;
+    }
+}
+
+# Configuración HTTPS (comentada, habilitar cuando tengas certificados SSL)
+# server {
+#     listen 443 ssl http2;
+#     server_name *.tudominio.com *.midominio.com;
+#     
+#     ssl_certificate /path/to/your/certificate.pem;
+#     ssl_certificate_key /path/to/your/private.key;
+#     
+#     # Misma configuración que HTTP pero en puerto 443
+#     location / {
+#         set $tenant_id "default";
+#         if ($host ~ ^([^.]+)\.(.+)$) {
+#             set $subdomain $1;
+#             set $tenant_id "tenant_$subdomain";
+#         }
+#         if ($subdomain = "www") {
+#             set $tenant_id "default";
+#         }
+#         
+#         proxy_pass http://127.0.0.1:3001;
+#         proxy_set_header X-Tenant-ID $tenant_id;
+#         # ... resto de headers igual que HTTP
+#     }
+# }
