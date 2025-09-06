@@ -1,8 +1,9 @@
-import { Entity, Column } from 'typeorm'
+import { Entity, Column, OneToMany } from 'typeorm'
 import { ApiProperty } from '@nestjs/swagger'
 import { IsEnum, IsString } from 'class-validator'
 
 import { EntityBase } from '../../../common/entities/base.entity'
+import { QuoteTemplateBlock } from '../../quote-template-block/entities/quote-template-block.entity'
 
 export enum ContentBlockType {
   GREETING = 'GREETING',
@@ -39,4 +40,7 @@ export class ContentBlock extends EntityBase {
   })
   @IsEnum(ContentBlockType)
   type: ContentBlockType
+
+  @OneToMany(() => QuoteTemplateBlock, quoteTemplateBlock => quoteTemplateBlock.contentBlock)
+  quoteTemplateBlocks: QuoteTemplateBlock[]
 }

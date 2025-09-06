@@ -8,7 +8,7 @@ import { ContentBlock } from '../../content-block/entities/content-block.entity'
 
 @Entity({ name: 'quote_template_block' })
 export class QuoteTemplateBlock extends EntityBase {
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', name: 'quote_template_id' })
   @ApiProperty({
     description: 'ID de la plantilla de presupuesto',
     type: String
@@ -16,7 +16,7 @@ export class QuoteTemplateBlock extends EntityBase {
   @IsUUID()
   quoteTemplateId: string
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', name: 'content_block_id' })
   @ApiProperty({
     description: 'ID del bloque de contenido',
     type: String
@@ -24,7 +24,7 @@ export class QuoteTemplateBlock extends EntityBase {
   @IsUUID()
   contentBlockId: string
 
-  @Column({ type: 'integer' })
+  @Column({ type: 'integer', name: 'sort_order' })
   @ApiProperty({
     description: 'Orden del bloque en la plantilla',
     example: 1

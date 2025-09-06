@@ -115,6 +115,27 @@ export class RestrictionsService extends BaseEntityService<Restrictions> {
   }
 
   /**
+   * Obtiene todas las restricciones con información completa del room type
+   * Utiliza relaciones TypeORM para evitar queries manuales
+   */
+  async findAllWithRoomType(): Promise<Restrictions[]> {
+    return await this.repository.find({
+      relations: ['roomType']
+    })
+  }
+
+  /**
+   * Obtiene restricciones por room type usando relaciones TypeORM
+   */
+  async findByRoomType(roomTypeId: string): Promise<Restrictions[]> {
+    return await this.repository.find({
+      where: { roomTypeId },
+      relations: ['roomType'],
+      order: { startDate: 'ASC' }
+    })
+  }
+
+  /**
    * Consolida restricciones consecutivas idénticas para evitar fragmentación.
    * 
    * Busca restricciones del mismo roomTypeId que sean idénticas en todos los campos
@@ -453,10 +474,12 @@ export class RestrictionsService extends BaseEntityService<Restrictions> {
 
   /**
    * Busca la restricción aplicable para una fecha y room type específicos
+   * Ahora incluye información del room type usando relaciones TypeORM
    */
   async findApplicableRestriction(roomTypeId: string, date: Date): Promise<Restrictions | null> {
     const dateString = date.toISOString().split('T')[0]
     return await this.repository.createQueryBuilder('r')
+      .leftJoinAndSelect('r.roomType', 'rt')  // ← Incluye datos del room type
       .where('r.roomTypeId = :roomTypeId', { roomTypeId })
       .andWhere('r.startDate <= :date', { date: dateString })
       .andWhere('r.endDate >= :date', { date: dateString })

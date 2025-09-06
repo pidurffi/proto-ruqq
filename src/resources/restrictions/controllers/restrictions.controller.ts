@@ -61,6 +61,8 @@ export class RestrictionsController extends BaseController<Restrictions> {
   async findAll(@Query() restrictionsQueryDto: RestrictionsQueryDto) {
     return this.getService().findAllWithFilterPaginated(restrictionsQueryDto)
   }
+
+
   @Get('/:id')
   @ApiResponse({
     status: 200,

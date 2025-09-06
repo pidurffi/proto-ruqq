@@ -2,6 +2,8 @@ import { Entity, Column, OneToMany } from 'typeorm'
 
 import { EntityBase } from '../../../common/entities/base.entity'
 import { BaseRatePeriod } from '../../base-rate-period/entities/base-rate-period.entity'
+import { Restrictions } from '../../restrictions/entities/restrictions.entity'
+import { PriceRule } from '../../price-rules/entities/price-rules.entity'
 
 @Entity({ name: 'room_type' })
 export class RoomType extends EntityBase {
@@ -44,4 +46,10 @@ export class RoomType extends EntityBase {
 
   @OneToMany(() => BaseRatePeriod, baseRatePeriod => baseRatePeriod.roomType)
   baseRatePeriods: BaseRatePeriod[]
+
+  @OneToMany(() => Restrictions, restriction => restriction.roomType)
+  restrictions: Restrictions[]
+
+  @OneToMany(() => PriceRule, priceRule => priceRule.roomType)
+  priceRules: PriceRule[]
 }

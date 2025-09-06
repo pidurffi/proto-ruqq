@@ -1,7 +1,8 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm'
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm'
 
 import { EntityBase } from '../../../common/entities/base.entity'
 import { RoomType } from '../../room-type/entities/room-type.entity'
+import { OccupancyRateModifiers } from '../../occupancy-rate-modifiers/entities/occupancy-rate-modifiers.entity'
 
 @Entity({ name: 'base_rate_period' })
 export class BaseRatePeriod extends EntityBase {
@@ -26,4 +27,7 @@ export class BaseRatePeriod extends EntityBase {
   @ManyToOne(() => RoomType)
   @JoinColumn({ name: 'room_type_id' })
   roomType: RoomType
+
+  @OneToMany(() => OccupancyRateModifiers, occupancyRateModifier => occupancyRateModifier.baseRatePeriod)
+  occupancyRateModifiers: OccupancyRateModifiers[]
 }

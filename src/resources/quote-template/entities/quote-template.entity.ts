@@ -15,7 +15,7 @@ export class QuoteTemplate extends EntityBase {
   @IsString()
   name: string
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: 'boolean', default: false, name: 'is_default' })
   @ApiProperty({
     description: 'Indica si es la plantilla por defecto',
     example: false

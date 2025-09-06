@@ -105,15 +105,17 @@ export class BaseRatePeriodRepository extends Repository<BaseRatePeriod> {
 
   /**
    * Busca restricciones de estadía que afecten un tipo de habitación y rango de fechas
+   * Ahora usa relaciones TypeORM en lugar de queries manuales
    * @param roomTypeId ID del tipo de habitación
    * @param checkIn Fecha de check-in
    * @param checkOut Fecha de check-out
-   * @returns Array de restricciones aplicables
+   * @returns Array de restricciones aplicables con información del room type
    */
   async findApplicableRestrictions(roomTypeId: string, checkIn: string, checkOut: string) {
     return await this.dataSource
       .getRepository('Restrictions')
       .createQueryBuilder('r')
+      .leftJoinAndSelect('r.roomType', 'rt')  // ← Ahora usa relación TypeORM
       .where('r.roomTypeId = :roomTypeId', { roomTypeId })
       .andWhere('r.startDate <= :checkOut', { checkOut })
       .andWhere('r.endDate >= :checkIn', { checkIn })
