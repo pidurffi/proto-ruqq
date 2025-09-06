@@ -79,10 +79,13 @@ export class RestrictionsController extends BaseController<Restrictions> {
 
   @Post('/')
   @ApiBody({ type: RestrictionsCreateDto, required: true })
-  @ApiCreatedResponse({ type: Restrictions, description: 'Restrictions created' })
+  @ApiCreatedResponse({ 
+    type: [Restrictions], 
+    description: 'Restrictions created (may return multiple restrictions after splitting)' 
+  })
   @ApiResponse({
-    status: 200,
-    description: 'Post Restrictions ok.',
+    status: 201,
+    description: 'Restrictions created successfully with smart splitting applied.',
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiBadRequestResponse({ description: 'Bad request.' })
