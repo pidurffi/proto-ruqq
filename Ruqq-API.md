@@ -42,6 +42,10 @@ graph TD
 
 ## 📊 Modelo de Datos Completo
 
+### **Sistema de Gestión de Cotizaciones y Templates**
+
+Ruqq incluye un sistema completo de gestión de cotizaciones formateadas que combina el motor de precios con plantillas personalizables para generar presupuestos listos para enviar.
+
 ### **Entidad Base: `EntityBase`**
 Todas las entidades del sistema extienden esta clase base:
 ```typescript
@@ -210,6 +214,77 @@ export class OccupancyRateModifier extends EntityBase {
   @ManyToOne(() => BaseRatePeriod)
   @JoinColumn({ name: 'base_rate_period_id' })
   baseRatePeriod: BaseRatePeriod
+}
+```
+
+### **Entidad: `ContentBlock` (Bloques de Contenido Reutilizables)**
+```typescript
+@Entity({ name: 'content_block' })
+export class ContentBlock extends EntityBase {
+  @Column({ length: 255 })
+  name: string                    // Nombre interno del bloque
+
+  @Column({ type: 'text' })
+  content: string                // Contenido de texto del bloque
+
+  @Column({ 
+    type: 'enum',
+    enum: ContentBlockType,
+    default: ContentBlockType.GENERAL_INFO
+  })
+  type: ContentBlockType         // Tipo de contenido
+
+  // Relaciones
+  @OneToMany(() => QuoteTemplateBlock, block => block.contentBlock)
+  templateBlocks: QuoteTemplateBlock[]
+}
+
+export enum ContentBlockType {
+  GREETING = 'greeting',
+  SERVICES = 'services',
+  TERMS = 'terms',
+  CANCELLATION_POLICY = 'cancellation_policy',
+  FOOTER = 'footer',
+  GENERAL_INFO = 'general_info'
+}
+```
+
+### **Entidad: `QuoteTemplate` (Plantillas de Cotización)**
+```typescript
+@Entity({ name: 'quote_template' })
+export class QuoteTemplate extends EntityBase {
+  @Column({ length: 255 })
+  name: string                    // "Presupuesto Estándar WhatsApp"
+
+  @Column({ default: false })
+  isDefault: boolean             // Marca plantilla por defecto
+
+  // Relaciones
+  @OneToMany(() => QuoteTemplateBlock, block => block.quoteTemplate)
+  templateBlocks: QuoteTemplateBlock[]
+}
+```
+
+### **Entidad: `QuoteTemplateBlock` (Estructura de Plantillas)**
+```typescript
+@Entity({ name: 'quote_template_block' })
+export class QuoteTemplateBlock extends EntityBase {
+  @Column({ type: 'uuid', name: 'quote_template_id' })
+  quoteTemplateId: string
+
+  @Column({ type: 'uuid', name: 'content_block_id' })
+  contentBlockId: string
+
+  @Column({ type: 'int', name: 'sort_order' })
+  sortOrder: number              // Orden del bloque en la plantilla
+
+  @ManyToOne(() => QuoteTemplate)
+  @JoinColumn({ name: 'quote_template_id' })
+  quoteTemplate: QuoteTemplate
+
+  @ManyToOne(() => ContentBlock)
+  @JoinColumn({ name: 'content_block_id' })
+  contentBlock: ContentBlock
 }
 ```
 
@@ -690,7 +765,29 @@ Authorization: Bearer <jwt-token>
 - **Source Tracking**: Identifica qué regla aplicó (`base_rate`, `price_rule`, `promotion`)
 - **Visualización Optimizada**: Estructura ideal para frontend (filas=unidades, columnas=fechas)
 
-### **💰 Endpoint Principal: Generación de Cotizaciones (Público)**
+### **📝 Endpoint Principal: Generación de Cotizaciones Formateadas**
+```http
+POST /quote-generator/generate
+Content-Type: application/json
+Authorization: Bearer <jwt-token>
+
+{
+  "pax": 2,
+  "checkInDate": "2024-03-15",
+  "checkOutDate": "2024-03-18",
+  "templateId": "uuid-template-whatsapp"
+}
+```
+
+**Respuesta:**
+```json
+{
+  "formattedQuote": "¡Hola! Gracias por contactarnos.\n\nPresupuesto para su estadía:\n\n🏨 Suite Deluxe\nCheck-in: 15/03/2024\nCheck-out: 18/03/2024\nHuéspedes: 2\n\nDetalles de precio:\n- 15/03 al 16/03: $12,000 por noche (2 noches)\n- 17/03: $15,000 por noche\n\nTOTAL: $39,000\n\nServicios incluidos:\n- Desayuno buffet\n- Wi-Fi\n- Acceso al spa\n\nPolítica de cancelación...\n\n¡Esperamos su confirmación!",
+  "templateName": "Presupuesto Estándar WhatsApp"
+}
+```
+
+### **💰 Endpoint Principal: Cálculo de Cotizaciones (Motor de Precios)**
 ```http
 POST /quotes/calculate
 Content-Type: application/json
@@ -745,6 +842,34 @@ Content-Type: application/json
     }
   ]
 }
+```
+
+### **📄 Endpoints de Gestión de Contenido y Templates**
+
+#### **Gestión de Bloques de Contenido**
+```http
+GET /content-block                    # Listar bloques con paginación
+GET /content-block/:id                # Obtener bloque específico
+POST /content-block                   # Crear nuevo bloque (SUPER_ADMIN)
+PATCH /content-block/:id              # Actualizar bloque (SUPER_ADMIN)
+DELETE /content-block/:id             # Eliminar bloque (SUPER_ADMIN)
+```
+
+#### **Gestión de Plantillas**
+```http
+GET /quote-template                   # Listar plantillas
+GET /quote-template/:id               # Obtener plantilla específica
+POST /quote-template                  # Crear plantilla (SUPER_ADMIN)
+PATCH /quote-template/:id             # Actualizar plantilla (SUPER_ADMIN)
+DELETE /quote-template/:id            # Eliminar plantilla (SUPER_ADMIN)
+```
+
+#### **Estructura de Plantillas (Orden de Bloques)**
+```http
+GET /quote-template-block             # Listar asociaciones
+POST /quote-template-block            # Vincular bloque a plantilla
+PATCH /quote-template-block/:id       # Cambiar orden
+DELETE /quote-template-block/:id      # Desvincular bloque
 ```
 
 ### **⚙️ Endpoints de Gestión de Tarifas Base**
@@ -1103,14 +1228,21 @@ src/
 ├── common/                       # Utilidades compartidas
 │   ├── controllers/              # BaseController con CRUD genérico
 │   ├── entities/                 # EntityBase abstracta
-│   ├── services/                 # BaseEntityService genérico
+│   ├── services/                 # BaseEntityService genérico y TenantService
+│   ├── middleware/               # TenantMiddleware para multi-tenancy
+│   ├── interfaces/               # ITenantContext, ITenantService
 │   ├── enums/                    # Enums del dominio (AdjustmentType, etc)
 │   ├── interceptors/             # Interceptores de respuesta
 │   └── mailer/                   # Sistema de emails con templates
 ├── resources/                    # Módulos de dominio
-│   ├── quotes/                   # 🎯 Motor de Cotizaciones
+│   ├── quotes/                   # 🎯 Motor de Cotizaciones (cálculo de precios)
+│   ├── quote-generator/          # 📝 Generador de Cotizaciones Formateadas
+│   ├── quote-template/           # 📋 Gestión de Plantillas
+│   ├── quote-template-block/     # 🔗 Estructura de Plantillas
+│   ├── content-block/            # 📄 Bloques de Contenido Reutilizables
 │   ├── base-rate-period/         # 🎨 Tarifas Base (Capa 1)
 │   ├── price-rules/              # ⚡ Reglas de Precio (Capa 2)
+│   ├── price-matrix/             # 📊 Matriz de Precios
 │   ├── calendar/                 # 📅 Orchestrador de Alto Nivel
 │   ├── room-type/                # 🏨 Gestión de Tipos de Habitación
 │   ├── occupancy-rate-modifier/  # 👥 Modificadores por Ocupación
@@ -1183,6 +1315,24 @@ export class PriceRulesService extends BaseEntityService<PriceRule> {
   
   // Cálculo de precio ajustado según tipo de regla
   calculateAdjustedPrice(basePrice: number, rule: PriceRule): number
+}
+```
+
+#### **QuoteGeneratorService** - Generador de Cotizaciones Formateadas
+```typescript
+@Injectable()
+export class QuoteGeneratorService {
+  // Generación de cotización formateada con plantilla
+  async generateQuote(dto: QuoteGeneratorRequestDto): Promise<QuoteGeneratorResponseDto>
+  
+  // Obtención de plantilla con bloques ordenados
+  private async getTemplateWithBlocks(templateId: string): Promise<QuoteTemplate>
+  
+  // Formateo de precios calculados
+  private formatPricingData(quoteResponse: QuoteResponseDto): string
+  
+  // Ensamblaje de contenido final
+  private assembleFormattedQuote(template: QuoteTemplate, pricingData: string): string
 }
 ```
 
@@ -1415,6 +1565,9 @@ describe('PriceMatrixService', () => {
 - ✅ **Filtrado de promociones** con parámetro `promotionsOnly`
 - ✅ Modificadores de ocupación dinámicos
 - ✅ Restricciones de reserva (min/max stay, closed dates)
+- ✅ **Sistema completo de gestión de cotizaciones formateadas**
+- ✅ **Plantillas de cotización personalizables con bloques reutilizables**
+- ✅ **Generador de cotizaciones que combina precios con plantillas**
 - ✅ API RESTful completa con documentación Swagger
 - ✅ Sistema de autenticación JWT con RBAC
 - ✅ Generador automático de módulos CRUD
@@ -1431,6 +1584,9 @@ describe('PriceMatrixService', () => {
 - 🔍 Motor de búsqueda avanzada de disponibilidad
 - 💰 **Sistema de promociones avanzadas** (códigos de descuento, límites de uso)
 - 🎨 **Generador visual de promociones** para frontend Angular
+- 📧 **Envío automático de cotizaciones por email con plantillas**
+- 🌐 **Plantillas multi-idioma para mercados internacionales**
+- 📊 **Tracking de conversión de cotizaciones a reservas**
 
 ### **Optimizaciones Futuras**
 - 🚀 Cache Redis para consultas frecuentes de tarifas
@@ -1496,7 +1652,7 @@ El sistema está **listo para producción** con:
 ## 🌐 Sistema Multi-Tenant
 
 ### **Resumen Ejecutivo**
-Ruqq implementa un sistema multi-tenant completo utilizando PostgreSQL schemas separados por cliente/hotel, permitiendo aislamiento total de datos mientras se mantiene una única instancia de la aplicación.
+Ruqq implementa un sistema multi-tenant completo utilizando PostgreSQL schemas separados por cliente/hotel, permitiendo aislamiento total de datos mientras se mantiene una única instancia de la aplicación. El sistema está **completamente operativo** con todos los módulos usando repositorios tenant-aware.
 
 ### **Arquitectura Multi-Tenant**
 
@@ -1896,19 +2052,29 @@ TENANT_HEADER_NAME=x-tenant-id
 
 #### **✅ Completado**
 - Sistema de detección de tenants (headers y subdominios)
-- Middleware de procesamiento de contexto
+- Middleware de procesamiento de contexto con validación robusta
+- TenantService con validación de formato y existencia
+- Endpoints de debugging: `/tenant-info` y `/tenant-debug`
 - Migraciones de base de datos multi-schema
 - Funciones PostgreSQL para gestión de tenants
-- Factory de repositorios tenant-aware
+- Factory de repositorios tenant-aware con Proxy Pattern
+- **TODOS los módulos usando repositorios tenant-aware:**
+  - ✅ BaseRatePeriod, PriceRules, Auth/User, RoomType
+  - ✅ OccupancyRateModifiers, ContentBlock, QuoteTemplate
+  - ✅ QuoteTemplateBlock, Restrictions, QuoteGenerator
 - Configuración Nginx para subdominios
 - Testing y validación del sistema
+- Manejo de errores con fallback a tenant por defecto en desarrollo
 
 #### **⚠️ Recomendaciones para Producción**
-1. Activar repositorios tenant-aware en todos los módulos
-2. Implementar cache por tenant
-3. Añadir métricas y monitoring por tenant
+1. ~~Activar repositorios tenant-aware en todos los módulos~~ ✅ COMPLETADO
+2. Implementar cache por tenant (Redis)
+3. Añadir métricas y monitoring por tenant (Prometheus)
 4. Crear dashboard de administración de tenants
 5. Implementar backup y restore por tenant
+6. Migrar lista de tenants válidos desde código a base de datos
+7. Implementar rate limiting por tenant
+8. Añadir audit logs completos por tenant
 
 ### **Comandos Útiles**
 ```bash
@@ -2053,6 +2219,105 @@ El backend está **100% preparado** para que el frontend Angular 20 implemente:
 
 ---
 
+## 📝 Sistema de Gestión de Cotizaciones
+
+### **Arquitectura del Sistema**
+
+El sistema de cotizaciones de Ruqq combina el motor de precios con un sistema de plantillas flexible para generar presupuestos formateados listos para enviar a clientes.
+
+### **Flujo de Generación de Cotizaciones**
+
+```mermaid
+graph LR
+    A[Cliente solicita cotización] --> B[QuoteGenerator]
+    B --> C[QuotesService<br/>Calcula precios]
+    B --> D[QuoteTemplate<br/>Obtiene plantilla]
+    D --> E[QuoteTemplateBlock<br/>Estructura ordenada]
+    E --> F[ContentBlock<br/>Contenido de texto]
+    C --> G[Formateo de precios]
+    F --> H[Ensamblaje final]
+    G --> H
+    H --> I[Cotización formateada]
+```
+
+### **Componentes del Sistema**
+
+#### **1. ContentBlock - Bloques Reutilizables**
+- **Propósito**: Textos reutilizables para armar plantillas
+- **Tipos**: Saludo, Servicios, Términos, Política de Cancelación, Footer, Info General
+- **Gestión**: Solo SUPER_ADMIN puede crear/editar
+- **Multi-tenant**: Cada tenant tiene sus propios bloques
+
+#### **2. QuoteTemplate - Plantillas de Cotización**
+- **Propósito**: Define estructura de cotizaciones
+- **Funcionalidad**: Puede marcar una plantilla como default
+- **Relación**: Una plantilla puede tener múltiples bloques ordenados
+- **Multi-tenant**: Plantillas independientes por tenant
+
+#### **3. QuoteTemplateBlock - Estructura y Orden**
+- **Propósito**: Define qué bloques usar y en qué orden
+- **Campo clave**: `sortOrder` para ordenamiento
+- **Flexibilidad**: Permite reusar bloques en múltiples plantillas
+
+#### **4. QuoteGenerator - Orquestador**
+- **Propósito**: Combina precios calculados con plantillas
+- **Integración**: Usa QuotesService para cálculo de precios
+- **Formato**: Genera texto formateado listo para WhatsApp/Email
+- **Acceso**: Cualquier usuario autenticado puede generar
+
+### **Casos de Uso**
+
+#### **Crear Plantilla para WhatsApp**
+```json
+// 1. Crear bloques de contenido
+POST /content-block
+{
+  "name": "Saludo WhatsApp",
+  "content": "¡Hola! Gracias por contactar con nosotros. A continuación su presupuesto:",
+  "type": "greeting"
+}
+
+// 2. Crear plantilla
+POST /quote-template
+{
+  "name": "Plantilla WhatsApp Estándar",
+  "isDefault": true
+}
+
+// 3. Vincular bloques a plantilla
+POST /quote-template-block
+{
+  "quoteTemplateId": "uuid-plantilla",
+  "contentBlockId": "uuid-saludo",
+  "sortOrder": 1
+}
+
+// 4. Generar cotización
+POST /quote-generator/generate
+{
+  "pax": 2,
+  "checkInDate": "2025-03-15",
+  "checkOutDate": "2025-03-18",
+  "templateId": "uuid-plantilla"
+}
+```
+
+### **Beneficios del Sistema**
+
+#### **Para el Negocio**
+- **Consistencia**: Todas las cotizaciones siguen el mismo formato
+- **Flexibilidad**: Múltiples plantillas para diferentes canales
+- **Rapidez**: Generación instantánea de presupuestos
+- **Personalización**: Contenido adaptable por hotel/tenant
+
+#### **Para Desarrollo**
+- **Separación de concerns**: Lógica de precios vs presentación
+- **Reutilización**: Bloques compartidos entre plantillas
+- **Mantenibilidad**: Cambios centralizados en contenido
+- **Multi-tenant ready**: Aislamiento completo por cliente
+
+---
+
 *Documentación técnica completa - Ruqq Hotel Management System*  
-*Actualizado el 2025-01-04 - Motor de Precios v2.3 con Multi-Tenancy y Sistema de Promociones*  
+*Actualizado el 2025-01-06 - Motor de Precios v2.3 con Sistema de Cotizaciones*  
 *Sistema de gestión hotelera integral con arquitectura empresarial multi-tenant*
