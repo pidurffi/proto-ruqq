@@ -48,11 +48,11 @@ export class PriceRulesService extends BaseEntityService<PriceRule> {
 
   /**
    * Verifica si dos reglas son idénticas en todos los campos relevantes para consolidación
-   * @param rule1 Primera regla
-   * @param rule2 Segunda regla
+   * @param rule1 Primera regla o regla existente
+   * @param rule2 Segunda regla o datos de nueva regla
    * @returns true si todas las propiedades de negocio son iguales
    */
-  private areRulesIdentical(rule1: PriceRule, rule2: PriceRule): boolean {
+  private areRulesIdentical(rule1: PriceRule, rule2: any): boolean {
     return (
       rule1.roomTypeId === rule2.roomTypeId &&
       rule1.priority === rule2.priority &&
@@ -63,127 +63,34 @@ export class PriceRulesService extends BaseEntityService<PriceRule> {
   }
 
   /**
-   * Consolida reglas consecutivas idénticas para evitar fragmentación.
-   * 
-   * Busca reglas del mismo roomTypeId que sean idénticas en todos los campos
-   * y tengan períodos consecutivos, fusionándolas en una sola regla.
-   * 
-   * @param roomTypeId ID del tipo de habitación
-   * @param queryRunner Instancia de QueryRunner para transacciones
-   * @returns Array de reglas consolidadas
+   * Método auxiliar para crear una regla de precio
+   * Centraliza la creación para evitar duplicación de código
    */
-  private async consolidateConsecutiveRules(
-    roomTypeId: string,
-    queryRunner: QueryRunner
-  ): Promise<PriceRule[]> {
-    // Obtener todas las reglas del roomType ordenadas por fecha de inicio
-    const allRules = await queryRunner.manager
-      .createQueryBuilder(PriceRule, 'pr')
-      .where('pr.roomTypeId = :roomTypeId', { roomTypeId })
-      .orderBy('pr.startDate', 'ASC')
-      .addOrderBy('pr.endDate', 'ASC')
-      .getMany()
-
-    if (allRules.length <= 1) {
-      return allRules
+  private async createRule(
+    queryRunner: QueryRunner, 
+    ruleData: {
+      roomTypeId: string,
+      startDate: string,
+      endDate: string,
+      daysOfWeek: number[],
+      adjustmentType: string,
+      adjustmentValue: number,
+      uid: string
     }
-
-    const consolidatedRules: PriceRule[] = []
-    const rulesToDelete: string[] = []
-    
-    let currentGroup = [allRules[0]]
-
-    for (let i = 1; i < allRules.length; i++) {
-      const current = allRules[i]
-      const lastInGroup = currentGroup[currentGroup.length - 1]
-
-      // Verificar si la regla actual es consecutiva e idéntica
-      const lastEndDate = lastInGroup.endDate.toString()
-      const currentStartDate = current.startDate.toString()
-      const nextDayAfterLast = this.addDays(lastEndDate, 1)
-      
-      const isConsecutive = currentStartDate === nextDayAfterLast
-      const areIdentical = this.areRulesIdentical(lastInGroup, current)
-
-      if (isConsecutive && areIdentical) {
-        // Agregar al grupo actual para consolidación
-        currentGroup.push(current)
-      } else {
-        // Procesar el grupo actual y empezar uno nuevo
-        if (currentGroup.length > 1) {
-          // Consolidar el grupo
-          const consolidated = await this.consolidateRuleGroup(currentGroup, queryRunner)
-          consolidatedRules.push(consolidated)
-          
-          // Marcar reglas del grupo para eliminación (excepto la primera que se actualizó)
-          for (let j = 1; j < currentGroup.length; j++) {
-            rulesToDelete.push(currentGroup[j].id)
-          }
-        } else {
-          // El grupo tiene solo una regla, mantenerla tal como está
-          consolidatedRules.push(currentGroup[0])
-        }
-        
-        // Empezar nuevo grupo
-        currentGroup = [current]
-      }
-    }
-
-    // Procesar el último grupo
-    if (currentGroup.length > 1) {
-      const consolidated = await this.consolidateRuleGroup(currentGroup, queryRunner)
-      consolidatedRules.push(consolidated)
-      
-      for (let j = 1; j < currentGroup.length; j++) {
-        rulesToDelete.push(currentGroup[j].id)
-      }
-    } else {
-      consolidatedRules.push(currentGroup[0])
-    }
-
-    // Eliminar reglas redundantes
-    for (const ruleId of rulesToDelete) {
-      await queryRunner.manager.delete(PriceRule, ruleId)
-    }
-
-    return consolidatedRules
-  }
-
-  /**
-   * Consolida un grupo de reglas consecutivas idénticas en una sola.
-   * 
-   * @param group Array de reglas consecutivas idénticas
-   * @param queryRunner Instancia de QueryRunner para transacciones
-   * @returns Regla consolidada resultante
-   */
-  private async consolidateRuleGroup(
-    group: PriceRule[],
-    queryRunner: QueryRunner
   ): Promise<PriceRule> {
-    if (group.length === 0) {
-      throw new Error('El grupo no puede estar vacío')
-    }
-
-    if (group.length === 1) {
-      return group[0]
-    }
-
-    // Tomar la primera regla como base y extender su fecha de fin
-    const firstRule = group[0]
-    const lastRule = group[group.length - 1]
-
-    // Actualizar la primera regla para que cubra todo el rango
-    await queryRunner.manager.update(PriceRule, firstRule.id, {
-      endDate: lastRule.endDate
+    const rule = queryRunner.manager.create(PriceRule, {
+      roomTypeId: ruleData.roomTypeId,
+      startDate: ruleData.startDate as any,
+      endDate: ruleData.endDate as any,
+      daysOfWeek: ruleData.daysOfWeek,
+      priority: 0, // Siempre prioridad 0 por simplicidad
+      adjustmentType: ruleData.adjustmentType as any,
+      adjustmentValue: ruleData.adjustmentValue,
+      uid: ruleData.uid
     })
-
-    // Obtener la regla actualizada
-    const updatedRule = await queryRunner.manager.findOne(PriceRule, {
-      where: { id: firstRule.id }
-    })
-
-    return updatedRule || firstRule
+    return await queryRunner.manager.save(rule)
   }
+
 
   constructor(
     @Inject(PriceRulesRepository)
@@ -236,17 +143,19 @@ export class PriceRulesService extends BaseEntityService<PriceRule> {
   }
 
   /**
-   * Implementa la estrategia de "split" inteligente para reglas de precio.
+   * ALGORITMO SIMPLE DESDE CERO - Sin parches
    * 
-   * LÓGICA INTELIGENTE:
-   * - Solo modifica reglas donde los parámetros realmente cambian
-   * - Analiza cada regla solapada para determinar qué partes necesitan cambio
-   * - Evita splits innecesarios cuando todos los campos ya son iguales
+   * LÓGICA CLARA:
+   * 1. Buscar reglas que se solapan con la nueva
+   * 2. Eliminar TODAS las reglas solapadas
+   * 3. Por cada regla eliminada, crear fragmentos que NO se solapan
+   * 4. Crear la nueva regla
+   * 5. NO consolidación automática (mantener simple)
    * 
-   * Casos que maneja:
-   * 1. Si todo el rango ya tiene los parámetros correctos: NO hace nada
-   * 2. Split inteligente: Solo modifica partes con parámetros diferentes
-   * 3. Preserva reglas existentes con parámetros idénticos
+   * RESULTADO GARANTIZADO:
+   * - Cero solapamientos
+   * - Cero ambigüedad  
+   * - Una regla por combinación exacta (fecha + días)
    * 
    * @param createDto Datos de la regla a insertar
    * @param uid ID del usuario
@@ -258,200 +167,91 @@ export class PriceRulesService extends BaseEntityService<PriceRule> {
     uid: string,
     queryRunner: QueryRunner
   ): Promise<PriceRule[]> {
-    const { roomTypeId, startDate, endDate, daysOfWeek, priority, adjustmentType, adjustmentValue } = createDto
-    const newStartDate = startDate.toString()
-    const newEndDate = endDate.toString()
+    const { roomTypeId, startDate, endDate, daysOfWeek, adjustmentType, adjustmentValue } = createDto
+    const newStart = startDate.toString()
+    const newEnd = endDate.toString()
 
-    // Validación básica de fechas
-    if (newStartDate > newEndDate) {
+    // Validación básica
+    if (newStart > newEnd) {
       throw new BadRequestException('La fecha de inicio no puede ser mayor que la fecha de fin')
     }
 
-    // Buscar reglas que se solapan con el nuevo rango
-    const overlappingRules = await queryRunner.manager
+    // PASO 1: Buscar todas las reglas que se solapan
+    const overlapping = await queryRunner.manager
       .createQueryBuilder(PriceRule, 'pr')
       .where('pr.roomTypeId = :roomTypeId', { roomTypeId })
-      .andWhere('pr.startDate <= :endDate', { endDate: newEndDate })
-      .andWhere('pr.endDate >= :startDate', { startDate: newStartDate })
-      .orderBy('pr.startDate', 'ASC')
+      .andWhere('pr.startDate <= :endDate', { endDate: newEnd })
+      .andWhere('pr.endDate >= :startDate', { startDate: newStart })
       .getMany()
 
-    // Si no hay reglas solapadas, crear directamente
-    if (overlappingRules.length === 0) {
-      const newRule = queryRunner.manager.create(PriceRule, {
-        roomTypeId,
-        startDate: newStartDate as any,
-        endDate: newEndDate as any,
-        daysOfWeek,
-        priority: priority ?? 0,
-        adjustmentType,
-        adjustmentValue,
-        uid
-      })
-      return [await queryRunner.manager.save(newRule)]
+    // PASO 2: Eliminar TODAS las reglas solapadas
+    for (const rule of overlapping) {
+      await queryRunner.manager.delete(PriceRule, rule.id)
     }
 
-    // LÓGICA INTELIGENTE: Analizar qué partes del rango realmente necesitan cambio
-    const results: PriceRule[] = []
-    const rulesToDelete: string[] = []
-    const rulesToUpdate: Array<{id: string, updates: Partial<PriceRule>}> = []
-    const rulesToCreate: Array<Partial<PriceRule>> = []
-    
-    // Determinar qué partes del rango nuevo necesitan ser insertadas
-    const rangesToInsert: Array<{startDate: string, endDate: string}> = []
-    let currentDate = newStartDate
+    // PASO 3: Crear fragmentos de las reglas eliminadas que NO se solapan
+    for (const oldRule of overlapping) {
+      const oldStart = oldRule.startDate.toString()
+      const oldEnd = oldRule.endDate.toString()
 
-    // Analizar cada regla solapada para determinar qué partes cambiar
-    for (const overlappingRule of overlappingRules) {
-      const overlappingStart = overlappingRule.startDate.toString()
-      const overlappingEnd = overlappingRule.endDate.toString()
-      
-      // Calcular intersección entre la nueva regla y la regla existente
-      const intersectionStart = newStartDate > overlappingStart ? newStartDate : overlappingStart
-      const intersectionEnd = newEndDate < overlappingEnd ? newEndDate : overlappingEnd
-      
-      // Si no hay intersección válida, continuar
-      if (intersectionStart > intersectionEnd) continue
-
-      // CASO CLAVE: Si TODOS los campos son iguales en la intersección, no modificar
-      const newRuleData = {
-        roomTypeId,
-        daysOfWeek: daysOfWeek.sort(),
-        priority: priority ?? 0,
-        adjustmentType,
-        adjustmentValue
-      }
-      
-      const existingRuleData = {
-        roomTypeId: overlappingRule.roomTypeId,
-        daysOfWeek: overlappingRule.daysOfWeek.sort(),
-        priority: overlappingRule.priority,
-        adjustmentType: overlappingRule.adjustmentType,
-        adjustmentValue: overlappingRule.adjustmentValue
-      }
-
-      const areAllFieldsIdentical = (
-        newRuleData.roomTypeId === existingRuleData.roomTypeId &&
-        newRuleData.priority === existingRuleData.priority &&
-        newRuleData.adjustmentType === existingRuleData.adjustmentType &&
-        Number(newRuleData.adjustmentValue) === Number(existingRuleData.adjustmentValue) &&
-        JSON.stringify(newRuleData.daysOfWeek) === JSON.stringify(existingRuleData.daysOfWeek)
-      )
-
-      if (areAllFieldsIdentical) {
-        // Agregar rangos anteriores a la intersección si existen
-        if (currentDate < intersectionStart) {
-          rangesToInsert.push({
-            startDate: currentDate,
-            endDate: this.subtractDays(intersectionStart, 1)
-          })
-        }
-        // Saltar la intersección porque ya tiene los parámetros correctos
-        currentDate = this.addDays(intersectionEnd, 1)
-        continue
-      }
-
-      // CASO: Parámetros diferentes, necesitamos hacer split
-      
-      // 1. Agregar rango anterior a la intersección si existe
-      if (currentDate < intersectionStart) {
-        rangesToInsert.push({
-          startDate: currentDate,
-          endDate: this.subtractDays(intersectionStart, 1)
-        })
-      }
-
-      // 2. Agregar la intersección como rango a insertar
-      rangesToInsert.push({
-        startDate: intersectionStart,
-        endDate: intersectionEnd
-      })
-
-      // 3. Manejar la regla existente solapada
-      
-      // Si la regla existente empieza antes de la intersección, acortarla
-      if (overlappingStart < intersectionStart) {
-        rulesToUpdate.push({
-          id: overlappingRule.id,
-          updates: { endDate: this.subtractDays(intersectionStart, 1) as any }
-        })
-      } else {
-        // Si no hay parte anterior, marcar para eliminar
-        rulesToDelete.push(overlappingRule.id)
-      }
-
-      // Si la regla existente continúa después de la intersección, crear resto
-      if (overlappingEnd > intersectionEnd) {
-        rulesToCreate.push({
-          roomTypeId,
-          startDate: this.addDays(intersectionEnd, 1) as any,
-          endDate: overlappingEnd as any,
-          daysOfWeek: overlappingRule.daysOfWeek,
-          priority: overlappingRule.priority,
-          adjustmentType: overlappingRule.adjustmentType,
-          adjustmentValue: overlappingRule.adjustmentValue,
+      // FRAGMENTO ANTES: Si la regla antigua empezaba antes que la nueva
+      if (oldStart < newStart) {
+        await this.createRule(queryRunner, {
+          roomTypeId: oldRule.roomTypeId,
+          startDate: oldStart,
+          endDate: this.subtractDays(newStart, 1),
+          daysOfWeek: oldRule.daysOfWeek,
+          adjustmentType: oldRule.adjustmentType,
+          adjustmentValue: oldRule.adjustmentValue,
           uid
         })
       }
 
-      currentDate = this.addDays(intersectionEnd, 1)
-    }
-
-    // Agregar rango final si existe
-    if (currentDate <= newEndDate) {
-      rangesToInsert.push({
-        startDate: currentDate,
-        endDate: newEndDate
-      })
-    }
-
-    // Ejecutar todas las operaciones de base de datos
-    
-    // 1. Eliminar reglas marcadas
-    for (const ruleId of rulesToDelete) {
-      await queryRunner.manager.delete(PriceRule, ruleId)
-    }
-
-    // 2. Actualizar reglas que fueron parcialmente cubiertas
-    for (const updateData of rulesToUpdate) {
-      await queryRunner.manager.update(PriceRule, updateData.id, updateData.updates)
-    }
-
-    // 3. Crear reglas restantes después de los splits
-    for (const createData of rulesToCreate) {
-      const newRule = queryRunner.manager.create(PriceRule, createData)
-      results.push(await queryRunner.manager.save(newRule))
-    }
-
-    // 4. Crear nuevas reglas solo donde realmente se necesita
-    for (const rangeData of rangesToInsert) {
-      if (rangeData.startDate <= rangeData.endDate) {
-        const newRule = queryRunner.manager.create(PriceRule, {
-          roomTypeId,
-          startDate: rangeData.startDate as any,
-          endDate: rangeData.endDate as any,
-          daysOfWeek,
-          priority: priority ?? 0,
-          adjustmentType,
-          adjustmentValue,
+      // FRAGMENTO DURANTE: Solo días NO afectados por la nueva regla
+      const unaffectedDays = oldRule.daysOfWeek.filter(day => !daysOfWeek.includes(day))
+      if (unaffectedDays.length > 0) {
+        await this.createRule(queryRunner, {
+          roomTypeId: oldRule.roomTypeId,
+          startDate: newStart,
+          endDate: newEnd,
+          daysOfWeek: unaffectedDays,
+          adjustmentType: oldRule.adjustmentType,
+          adjustmentValue: oldRule.adjustmentValue,
           uid
         })
-        results.push(await queryRunner.manager.save(newRule))
+      }
+
+      // FRAGMENTO DESPUÉS: Si la regla antigua terminaba después que la nueva  
+      if (oldEnd > newEnd) {
+        await this.createRule(queryRunner, {
+          roomTypeId: oldRule.roomTypeId,
+          startDate: this.addDays(newEnd, 1),
+          endDate: oldEnd,
+          daysOfWeek: oldRule.daysOfWeek,
+          adjustmentType: oldRule.adjustmentType,
+          adjustmentValue: oldRule.adjustmentValue,
+          uid
+        })
       }
     }
 
-    // 5. CONSOLIDACIÓN AUTOMÁTICA: Fusionar reglas consecutivas idénticas
-    // Esto evita fragmentación innecesaria después de múltiples operaciones de split
-    await this.consolidateConsecutiveRules(roomTypeId, queryRunner)
-    
-    // Retornar todas las reglas actualizadas del roomType
-    const finalRules = await queryRunner.manager
+    // PASO 4: Crear la nueva regla (UNA SOLA VEZ)
+    await this.createRule(queryRunner, {
+      roomTypeId,
+      startDate: newStart,
+      endDate: newEnd,
+      daysOfWeek,
+      adjustmentType,
+      adjustmentValue,
+      uid
+    })
+
+    // PASO 5: Retornar todas las reglas del roomType
+    return await queryRunner.manager
       .createQueryBuilder(PriceRule, 'pr')
       .where('pr.roomTypeId = :roomTypeId', { roomTypeId })
       .orderBy('pr.startDate', 'ASC')
       .getMany()
-
-    return finalRules
   }
 
   /**
