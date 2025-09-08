@@ -46,129 +46,27 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
   }
 
   /**
-   * Consolida períodos consecutivos con el mismo precio para evitar fragmentación.
-   * 
-   * Busca períodos del mismo roomTypeId y precio que sean consecutivos en fechas
-   * y los fusiona en un solo período para mantener la base de datos limpia.
-   * 
-   * Ejemplo: 
-   * [1/1-10/1 $100] + [11/1-20/1 $100] + [21/1-31/1 $100] = [1/1-31/1 $100]
-   * 
-   * @param roomTypeId ID del tipo de habitación
-   * @param queryRunner Instancia de QueryRunner para transacciones
-   * @returns Array de períodos consolidados
+   * Método auxiliar para crear un período de tarifa base
+   * Centraliza la creación para evitar duplicación de código
    */
-  private async consolidateConsecutivePeriods(
-    roomTypeId: string,
-    queryRunner: QueryRunner
-  ): Promise<BaseRatePeriod[]> {
-    // Obtener todos los períodos del roomType ordenados por fecha de inicio
-    const allPeriods = await queryRunner.manager
-      .createQueryBuilder(BaseRatePeriod, 'brp')
-      .where('brp.roomTypeId = :roomTypeId', { roomTypeId })
-      .orderBy('brp.startDate', 'ASC')
-      .addOrderBy('brp.endDate', 'ASC')
-      .getMany()
-
-    if (allPeriods.length <= 1) {
-      return allPeriods
+  private async createPeriod(
+    queryRunner: QueryRunner, 
+    periodData: {
+      roomTypeId: string,
+      startDate: string,
+      endDate: string,
+      price: number,
+      uid: string
     }
-
-    const consolidatedPeriods: BaseRatePeriod[] = []
-    const periodsToDelete: string[] = []
-    
-    let currentGroup = [allPeriods[0]]
-
-    for (let i = 1; i < allPeriods.length; i++) {
-      const current = allPeriods[i]
-      const lastInGroup = currentGroup[currentGroup.length - 1]
-
-      // Verificar si el período actual es consecutivo y tiene el mismo precio
-      const lastEndDate = lastInGroup.endDate.toString()
-      const currentStartDate = current.startDate.toString()
-      const nextDayAfterLast = this.addDays(lastEndDate, 1)
-      
-      const isConsecutive = currentStartDate === nextDayAfterLast
-      const hasSamePrice = Number(lastInGroup.price) === Number(current.price)
-
-      if (isConsecutive && hasSamePrice) {
-        // Agregar al grupo actual para consolidación
-        currentGroup.push(current)
-      } else {
-        // Procesar el grupo actual y empezar uno nuevo
-        if (currentGroup.length > 1) {
-          // Consolidar el grupo
-          const consolidated = await this.consolidateGroup(currentGroup, queryRunner)
-          consolidatedPeriods.push(consolidated)
-          
-          // Marcar períodos del grupo para eliminación (excepto el primero que se actualizó)
-          for (let j = 1; j < currentGroup.length; j++) {
-            periodsToDelete.push(currentGroup[j].id)
-          }
-        } else {
-          // El grupo tiene solo un período, mantenerlo tal como está
-          consolidatedPeriods.push(currentGroup[0])
-        }
-        
-        // Empezar nuevo grupo
-        currentGroup = [current]
-      }
-    }
-
-    // Procesar el último grupo
-    if (currentGroup.length > 1) {
-      const consolidated = await this.consolidateGroup(currentGroup, queryRunner)
-      consolidatedPeriods.push(consolidated)
-      
-      for (let j = 1; j < currentGroup.length; j++) {
-        periodsToDelete.push(currentGroup[j].id)
-      }
-    } else {
-      consolidatedPeriods.push(currentGroup[0])
-    }
-
-    // Eliminar períodos redundantes
-    for (const periodId of periodsToDelete) {
-      await queryRunner.manager.delete(BaseRatePeriod, periodId)
-    }
-
-    return consolidatedPeriods
-  }
-
-  /**
-   * Consolida un grupo de períodos consecutivos con el mismo precio en uno solo.
-   * 
-   * @param group Array de períodos consecutivos con el mismo precio
-   * @param queryRunner Instancia de QueryRunner para transacciones
-   * @returns Período consolidado resultante
-   */
-  private async consolidateGroup(
-    group: BaseRatePeriod[],
-    queryRunner: QueryRunner
   ): Promise<BaseRatePeriod> {
-    if (group.length === 0) {
-      throw new Error('El grupo no puede estar vacío')
-    }
-
-    if (group.length === 1) {
-      return group[0]
-    }
-
-    // Tomar el primer período como base y extender su fecha de fin
-    const firstPeriod = group[0]
-    const lastPeriod = group[group.length - 1]
-
-    // Actualizar el primer período para que cubra todo el rango
-    await queryRunner.manager.update(BaseRatePeriod, firstPeriod.id, {
-      endDate: lastPeriod.endDate
+    const period = queryRunner.manager.create(BaseRatePeriod, {
+      roomTypeId: periodData.roomTypeId,
+      startDate: periodData.startDate as any,
+      endDate: periodData.endDate as any,
+      price: periodData.price,
+      uid: periodData.uid
     })
-
-    // Obtener el período actualizado
-    const updatedPeriod = await queryRunner.manager.findOne(BaseRatePeriod, {
-      where: { id: firstPeriod.id }
-    })
-
-    return updatedPeriod || firstPeriod
+    return await queryRunner.manager.save(period)
   }
   
   constructor(
@@ -226,22 +124,18 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
   }
 
   /**
-   * Implementa la estrategia de "split" inteligente para períodos de tarifas.
+   * ALGORITMO SIMPLE DESDE CERO - BaseRatePeriod
    * 
-   * LÓGICA INTELIGENTE:
-   * - Solo modifica segmentos donde el precio realmente cambia
-   * - Analiza cada período solapado para determinar qué partes necesitan cambio
-   * - Evita splits innecesarios cuando el precio ya es igual
+   * LÓGICA CLARA (igual que PriceRules):
+   * 1. Buscar períodos que se solapan con el nuevo
+   * 2. Eliminar TODOS los períodos solapados
+   * 3. Por cada período eliminado, crear fragmentos que NO se solapan
+   * 4. Crear el nuevo período
+   * 5. NO consolidación automática (mantener simple)
    * 
-   * Casos que maneja:
-   * 1. Si todo el rango ya tiene el precio correcto: NO hace nada
-   * 2. Split inteligente: Solo modifica partes con precio diferente
-   * 3. Preserva segmentos existentes con el precio correcto
-   * 
-   * Ejemplo complejo: 
-   * Estado: [1/1-31/12 $500] + [1/2-10/2 $600]
-   * Inserción: [10/1-5/2 $500]
-   * Resultado: [1/1-31/12 $500] + [6/2-10/2 $600] (solo cambia donde hay diferencia)
+   * DIFERENCIA vs PriceRules: 
+   * - Solo compara 'price' (más simple que múltiples campos)
+   * - NO tiene "fragmento durante" (sin daysOfWeek)
    * 
    * @param createDto Datos del período a insertar
    * @param uid ID del usuario
@@ -254,165 +148,143 @@ export class BaseRatePeriodService extends BaseEntityService<BaseRatePeriod> {
     queryRunner: QueryRunner
   ): Promise<BaseRatePeriod[]> {
     const { roomTypeId, startDate, endDate, price } = createDto
-    const newStartDate = startDate.toString()
-    const newEndDate = endDate.toString()
+    const newStart = startDate.toString()
+    const newEnd = endDate.toString()
 
-    // Validación básica de fechas
-    if (newStartDate > newEndDate) {
+    // Validación básica
+    if (newStart > newEnd) {
       throw new BadRequestException('La fecha de inicio no puede ser mayor que la fecha de fin')
     }
 
-    // Buscar períodos que se solapan con el nuevo rango
-    const overlappingPeriods = await queryRunner.manager
+    // PASO 1: Buscar todos los períodos que se solapan
+    const overlapping = await queryRunner.manager
       .createQueryBuilder(BaseRatePeriod, 'brp')
       .where('brp.roomTypeId = :roomTypeId', { roomTypeId })
-      .andWhere('brp.startDate <= :endDate', { endDate: newEndDate })
-      .andWhere('brp.endDate >= :startDate', { startDate: newStartDate })
+      .andWhere('brp.startDate <= :endDate', { endDate: newEnd })
+      .andWhere('brp.endDate >= :startDate', { startDate: newStart })
+      .getMany()
+
+    // PASO 2: Eliminar TODOS los períodos solapados
+    for (const period of overlapping) {
+      await queryRunner.manager.delete(BaseRatePeriod, period.id)
+    }
+
+    // PASO 3: Crear fragmentos de los períodos eliminados que NO se solapan
+    for (const oldPeriod of overlapping) {
+      const oldStart = oldPeriod.startDate.toString()
+      const oldEnd = oldPeriod.endDate.toString()
+
+      // FRAGMENTO ANTES: Si el período antiguo empezaba antes que el nuevo
+      if (oldStart < newStart) {
+        await this.createPeriod(queryRunner, {
+          roomTypeId: oldPeriod.roomTypeId,
+          startDate: oldStart,
+          endDate: this.subtractDays(newStart, 1),
+          price: oldPeriod.price,
+          uid
+        })
+      }
+
+      // FRAGMENTO DESPUÉS: Si el período antiguo terminaba después que el nuevo  
+      if (oldEnd > newEnd) {
+        await this.createPeriod(queryRunner, {
+          roomTypeId: oldPeriod.roomTypeId,
+          startDate: this.addDays(newEnd, 1),
+          endDate: oldEnd,
+          price: oldPeriod.price,
+          uid
+        })
+      }
+
+      // NO hay "fragmento durante" en BaseRatePeriod (sin daysOfWeek)
+    }
+
+    // PASO 4: Crear el nuevo período (UNA SOLA VEZ)
+    await this.createPeriod(queryRunner, {
+      roomTypeId,
+      startDate: newStart,
+      endDate: newEnd,
+      price,
+      uid
+    })
+
+    // PASO 5: Consolidar períodos consecutivos con mismo precio
+    await this.consolidateConsecutivePeriods(queryRunner, roomTypeId, uid)
+
+    // PASO 6: Retornar todos los períodos del roomType
+    return await queryRunner.manager
+      .createQueryBuilder(BaseRatePeriod, 'brp')
+      .where('brp.roomTypeId = :roomTypeId', { roomTypeId })
+      .orderBy('brp.startDate', 'ASC')
+      .getMany()
+  }
+
+  /**
+   * CONSOLIDACIÓN: Une períodos consecutivos con el mismo precio
+   * 
+   * LÓGICA SIMPLE:
+   * 1. Buscar todos los períodos del roomType ordenados por fecha
+   * 2. Agrupar períodos consecutivos con mismo precio
+   * 3. Eliminar períodos fragmentados
+   * 4. Crear un solo período consolidado por grupo
+   */
+  private async consolidateConsecutivePeriods(
+    queryRunner: QueryRunner,
+    roomTypeId: string,
+    uid: string
+  ): Promise<void> {
+    // PASO 1: Obtener todos los períodos ordenados
+    const periods = await queryRunner.manager
+      .createQueryBuilder(BaseRatePeriod, 'brp')
+      .where('brp.roomTypeId = :roomTypeId', { roomTypeId })
       .orderBy('brp.startDate', 'ASC')
       .getMany()
 
-    // Si no hay períodos solapados, crear directamente
-    if (overlappingPeriods.length === 0) {
-      const newPeriod = queryRunner.manager.create(BaseRatePeriod, {
+    if (periods.length <= 1) return // No hay nada que consolidar
+
+    // PASO 2: Agrupar períodos consecutivos con mismo precio
+    const groups: BaseRatePeriod[][] = []
+    let currentGroup = [periods[0]]
+
+    for (let i = 1; i < periods.length; i++) {
+      const current = periods[i]
+      const previous = periods[i - 1]
+
+      // Verificar si son consecutivos y mismo precio
+      const isConsecutive = this.addDays(previous.endDate.toString(), 1) === current.startDate.toString()
+      const samePrice = Number(previous.price) === Number(current.price)
+
+      if (isConsecutive && samePrice) {
+        // Agregar al grupo actual
+        currentGroup.push(current)
+      } else {
+        // Cerrar grupo actual y empezar nuevo
+        groups.push(currentGroup)
+        currentGroup = [current]
+      }
+    }
+    groups.push(currentGroup) // Agregar último grupo
+
+    // PASO 3: Eliminar todos los períodos existentes
+    for (const period of periods) {
+      await queryRunner.manager.delete(BaseRatePeriod, period.id)
+    }
+
+    // PASO 4: Crear períodos consolidados
+    for (const group of groups) {
+      if (group.length === 0) continue
+
+      const startDate = group[0].startDate.toString()
+      const endDate = group[group.length - 1].endDate.toString()
+      const price = group[0].price
+
+      await this.createPeriod(queryRunner, {
         roomTypeId,
-        startDate: newStartDate as any,
-        endDate: newEndDate as any,
+        startDate,
+        endDate,
         price,
         uid
       })
-      return [await queryRunner.manager.save(newPeriod)]
     }
-
-    // LÓGICA INTELIGENTE: Analizar qué partes del rango realmente necesitan cambio
-    const results: BaseRatePeriod[] = []
-    const periodsToDelete: string[] = []
-    const periodsToUpdate: Array<{id: string, updates: Partial<BaseRatePeriod>}> = []
-    const periodsToCreate: Array<Partial<BaseRatePeriod>> = []
-    
-    // Determinar qué partes del rango nuevo necesitan ser insertadas
-    const rangesToInsert: Array<{startDate: string, endDate: string}> = []
-    let currentDate = newStartDate
-
-    // Analizar cada período solapado para determinar qué partes cambiar
-    for (const overlappingPeriod of overlappingPeriods) {
-      const overlappingStart = overlappingPeriod.startDate.toString()
-      const overlappingEnd = overlappingPeriod.endDate.toString()
-      
-      // Calcular intersección entre el nuevo período y el período existente
-      const intersectionStart = newStartDate > overlappingStart ? newStartDate : overlappingStart
-      const intersectionEnd = newEndDate < overlappingEnd ? newEndDate : overlappingEnd
-      
-      // Si no hay intersección válida, continuar
-      if (intersectionStart > intersectionEnd) continue
-
-      // CASO CLAVE: Si el precio es igual en la intersección, no modificar
-      if (Number(overlappingPeriod.price) === Number(price)) {
-        // Agregar rangos anteriores a la intersección si existen
-        if (currentDate < intersectionStart) {
-          rangesToInsert.push({
-            startDate: currentDate,
-            endDate: this.subtractDays(intersectionStart, 1)
-          })
-        }
-        // Saltar la intersección porque ya tiene el precio correcto
-        currentDate = this.addDays(intersectionEnd, 1)
-        continue
-      }
-
-      // CASO: Precio diferente, necesitamos hacer split
-      
-      // 1. Agregar rango anterior a la intersección si existe
-      if (currentDate < intersectionStart) {
-        rangesToInsert.push({
-          startDate: currentDate,
-          endDate: this.subtractDays(intersectionStart, 1)
-        })
-      }
-
-      // 2. Agregar la intersección como rango a insertar
-      rangesToInsert.push({
-        startDate: intersectionStart,
-        endDate: intersectionEnd
-      })
-
-      // 3. Manejar el período existente solapado
-      
-      // Si el período existente empieza antes de la intersección, acortarlo
-      if (overlappingStart < intersectionStart) {
-        periodsToUpdate.push({
-          id: overlappingPeriod.id,
-          updates: { endDate: this.subtractDays(intersectionStart, 1) as any }
-        })
-      } else {
-        // Si no hay parte anterior, marcar para eliminar
-        periodsToDelete.push(overlappingPeriod.id)
-      }
-
-      // Si el período existente continúa después de la intersección, crear resto
-      if (overlappingEnd > intersectionEnd) {
-        periodsToCreate.push({
-          roomTypeId,
-          startDate: this.addDays(intersectionEnd, 1) as any,
-          endDate: overlappingEnd as any,
-          price: overlappingPeriod.price,
-          uid
-        })
-      }
-
-      currentDate = this.addDays(intersectionEnd, 1)
-    }
-
-    // Agregar rango final si existe
-    if (currentDate <= newEndDate) {
-      rangesToInsert.push({
-        startDate: currentDate,
-        endDate: newEndDate
-      })
-    }
-
-    // Ejecutar todas las operaciones de base de datos
-    
-    // 1. Eliminar períodos marcados
-    for (const periodId of periodsToDelete) {
-      await queryRunner.manager.delete(BaseRatePeriod, periodId)
-    }
-
-    // 2. Actualizar períodos que fueron parcialmente cubiertos
-    for (const updateData of periodsToUpdate) {
-      await queryRunner.manager.update(BaseRatePeriod, updateData.id, updateData.updates)
-    }
-
-    // 3. Crear períodos restantes después de los splits
-    for (const createData of periodsToCreate) {
-      const newPeriod = queryRunner.manager.create(BaseRatePeriod, createData)
-      results.push(await queryRunner.manager.save(newPeriod))
-    }
-
-    // 4. Crear nuevos períodos solo donde realmente se necesita
-    for (const rangeData of rangesToInsert) {
-      if (rangeData.startDate <= rangeData.endDate) {
-        const newPeriod = queryRunner.manager.create(BaseRatePeriod, {
-          roomTypeId,
-          startDate: rangeData.startDate as any,
-          endDate: rangeData.endDate as any,
-          price,
-          uid
-        })
-        results.push(await queryRunner.manager.save(newPeriod))
-      }
-    }
-
-    // 5. CONSOLIDACIÓN AUTOMÁTICA: Fusionar períodos consecutivos con el mismo precio
-    // Esto evita fragmentación innecesaria después de múltiples operaciones de split
-    await this.consolidateConsecutivePeriods(roomTypeId, queryRunner)
-    
-    // Retornar todos los períodos actualizados del roomType
-    const finalPeriods = await queryRunner.manager
-      .createQueryBuilder(BaseRatePeriod, 'brp')
-      .where('brp.roomTypeId = :roomTypeId', { roomTypeId })
-      .orderBy('brp.startDate', 'ASC')
-      .getMany()
-
-    return finalPeriods
   }
 }
