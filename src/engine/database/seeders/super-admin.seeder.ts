@@ -89,13 +89,24 @@ export class SuperAdminSeeder {
     // Email del SuperAdmin - cambiar en producción
     const superAdminEmail = 'admin@ruqq.com'
 
-    // Verificar si ya existe el SuperAdmin
+    // Verificar si ya existe el SuperAdmin (incluir password para comparación)
     const existingUser = await userRepo.findOne({
       where: { email: superAdminEmail },
+      select: { id: true, email: true, fullName: true, roles: true, password: true },
     })
 
     if (existingUser) {
-      console.log('   ✅ SuperAdmin ya existe, saltando creación...')
+      // Verificar si necesita actualización de contraseña
+      const devPassword = process.env.SUPERADMIN_DEV_PASSWORD
+      if (devPassword && !await bcrypt.compare(devPassword, existingUser.password)) {
+        console.log('   🔄 SuperAdmin existe pero la contraseña ha cambiado, actualizando...')
+        const hashedPassword = await bcrypt.hash(devPassword, 10)
+        await userRepo.update(existingUser.id, { password: hashedPassword })
+        console.log('   ✅ Contraseña del SuperAdmin actualizada')
+      } else {
+        console.log('   ✅ SuperAdmin ya existe con contraseña correcta')
+      }
+      
       console.log(`   📧 Email: ${existingUser.email}`)
       console.log(`   👤 Nombre: ${existingUser.fullName}`)
       console.log(`   🎭 Roles: ${existingUser.roles.join(', ')}`)

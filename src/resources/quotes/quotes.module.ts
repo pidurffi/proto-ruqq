@@ -5,8 +5,9 @@ import { DatabaseModule } from '../../engine/database/database.module'
 import { CommonModule } from '../../common/common.module'
 import { AuthModule } from '../../engine/auth/auth.module'
 import { QuotesController } from './controllers/quotes.controller'
-import { QuotesService } from './services/quotes.service'  // ← Servicio actualizado
-import { DailyRoomRatesModule } from '../daily-room-rates/daily-room-rates.module'  // ← Nuevo módulo OTA
+import { QuoteEngineService } from './services/quote-engine.service'  // ← Nuevo servicio limpio
+import { DailyRoomRatesModule } from '../daily-room-rates/daily-room-rates.module'  // ← Módulo OTA
+import { RoomTypeModule } from '../room-type/room-type.module'  // ← Para tenant-aware room types
 
 @Module({
   imports: [
@@ -14,10 +15,11 @@ import { DailyRoomRatesModule } from '../daily-room-rates/daily-room-rates.modul
     DatabaseModule, 
     CommonModule, 
     AuthModule,
-    DailyRoomRatesModule  // ← Reemplaza BaseRatePeriodModule + PriceRulesModule
+    DailyRoomRatesModule,  // ← Acceso a daily rates tenant-aware
+    RoomTypeModule  // ← Acceso tenant-aware a room types
   ],
-  providers: [QuotesService],
+  providers: [QuoteEngineService],
   controllers: [QuotesController],
-  exports: [QuotesService],
+  exports: [QuoteEngineService],
 })
 export class QuotesModule {}

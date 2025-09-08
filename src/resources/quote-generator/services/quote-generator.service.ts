@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common'
 
-import { QuotesService } from '../../quotes/services/quotes.service'
+import { QuoteEngineService } from '../../quotes/services/quote-engine.service'
 import { QuoteTemplateRepository } from '../../quote-template/repositories/quote-template.repository'
 import { QuoteTemplateBlockRepository } from '../../quote-template-block/repositories/quote-template-block.repository'
 import { ContentBlockRepository } from '../../content-block/repositories/content-block.repository'
@@ -13,11 +13,11 @@ import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto } from '../../quotes
  * 
  * RESPONSABILIDAD ÚNICA (SRP):
  * - Orquesta la generación de presupuestos usando plantillas y bloques de contenido
- * - NO maneja cálculo de precios (eso es responsabilidad del QuotesService)
+ * - NO maneja cálculo de precios (eso es responsabilidad del QuoteEngineService)
  * - NO maneja persistencia directa (usa repositorios inyectados)
  * 
  * DEPENDENCY INVERSION PRINCIPLE (DIP):
- * - Depende del QuotesService para cálculo de precios
+ * - Depende del QuoteEngineService para cálculo de precios
  * - Usa repositorios de TypeORM para acceso a datos
  * 
  * DOMAIN-DRIVEN DESIGN:
@@ -27,7 +27,7 @@ import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto } from '../../quotes
 @Injectable()
 export class QuoteGeneratorService {
   constructor(
-    private readonly quotesService: QuotesService,
+    private readonly quoteEngineService: QuoteEngineService,
     @Inject(QuoteTemplateRepository)
     private readonly quoteTemplateRepository: QuoteTemplateRepository,
     @Inject(QuoteTemplateBlockRepository)
@@ -40,7 +40,7 @@ export class QuoteGeneratorService {
    * Genera un presupuesto formateado usando una plantilla específica
    * 
    * CASO DE USO DE DOMINIO:
-   * 1. Calcula precios usando el QuotesService existente
+   * 1. Calcula precios usando el QuoteEngineService
    * 2. Obtiene la plantilla y sus bloques de contenido ordenados
    * 3. Formatea la información dinámica (precios de habitaciones)
    * 4. Ensambla el texto final combinando bloques estáticos + contenido dinámico
@@ -66,7 +66,7 @@ export class QuoteGeneratorService {
       checkOutDate: quoteBudgetData.checkOutDate
     }
 
-    const quoteData = await this.quotesService.calculateQuote(quoteBudgetDto)
+    const quoteData = await this.quoteEngineService.calculateQuote(quoteBudgetDto)
 
     // Paso 2: Obtener la plantilla con sus bloques ordenados
     const template = await this.getTemplateWithBlocks(templateId)
@@ -124,7 +124,7 @@ export class QuoteGeneratorService {
    * - Muestra solo el precio total, no el desglose por segmentos
    * - Extensible para formatos más complejos en el futuro
    * 
-   * @param quoteData Datos de cotización del QuotesService
+   * @param quoteData Datos de cotización del QuoteEngineService
    * @returns Texto formateado con precios de habitaciones
    */
   private formatDynamicContent(quoteData: QuoteResponseDto): string {

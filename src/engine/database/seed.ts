@@ -20,6 +20,9 @@
 import { DataSource } from 'typeorm'
 import { runSeeders } from './seeders'
 import { User } from '../auth/entities/user.entity'
+import { RoomType } from '../../resources/room-type/entities/room-type.entity'
+import { Restrictions } from '../../resources/restrictions/entities/restrictions.entity'
+import { DailyRoomRate } from '../../resources/daily-room-rates/entities/daily-room-rate.entity'
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies'
 import * as dotenv from 'dotenv'
 import { join } from 'path'
@@ -51,6 +54,9 @@ const seedDataSource = new DataSource({
   namingStrategy: new SnakeNamingStrategy(), // Misma estrategia que el proyecto
   entities: [
     User,
+    RoomType,
+    Restrictions,
+    DailyRoomRate,
     // TODO: Agregar más entidades aquí según el sistema crezca
   ],
 })

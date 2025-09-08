@@ -84,7 +84,7 @@ export class AuthService extends BaseService {
     if (!bcrypt.compareSync(password, user.password)) {
       await this.logger.error({
         message: `401 - Credenciales invalidas (passw) `,
-        sendEmail: true,
+        sendEmail: false,
         stack: UnauthorizedException.name,
         context: this.context,
       })

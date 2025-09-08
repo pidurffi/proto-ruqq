@@ -2,6 +2,7 @@ import { Inject, Injectable, BadRequestException } from '@nestjs/common'
 
 import { DailyRoomRatesRepository } from '../../daily-room-rates/repositories/daily-room-rates.repository'
 import { DailyRatesService } from '../../daily-room-rates/services/daily-room-rates.service'
+import { RoomTypeRepository } from '../../room-type/repositories/room-type.repository'
 import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto, QuoteSegmentDto, UnavailableRoomTypeDto, RejectionReasonCode } from '../dto'
 
 /**
@@ -33,6 +34,8 @@ export class QuotesService {
     private readonly dailyRatesRepository: DailyRoomRatesRepository,
     @Inject(DailyRatesService)
     private readonly dailyRatesService: DailyRatesService,
+    @Inject(RoomTypeRepository)
+    private readonly roomTypeRepository: RoomTypeRepository,
   ) {}
 
   /**
@@ -251,13 +254,10 @@ export class QuotesService {
   }
 
   private async getAllRoomTypes(): Promise<any[]> {
-    // Simplificado - obtener directamente de room_type
-    // En el futuro esto podría venir del nuevo sistema
-    return this.dailyRatesRepository.query(`
-      SELECT id, name, code, base_capacity, max_capacity 
-      FROM room_type 
-      WHERE deleted_at IS NULL
-    `)
+    // Usar repositorio tenant-aware para obtener room types
+    return this.roomTypeRepository.find({
+      select: ['id', 'name', 'code', 'baseCapacity', 'maxCapacity']
+    })
   }
 
   private calculateNightsBetween(startDate: string, endDate: string): number {

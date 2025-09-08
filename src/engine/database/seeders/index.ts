@@ -1,9 +1,9 @@
 /**
- * Seeder principal para Ruqq - Versión inicial
+ * Seeder principal para Ruqq - Sistema Completo de Datos Iniciales
  * 
  * PROPÓSITO:
- * Orquesta la ejecución de seeders de forma ordenada y controlada.
- * Actualmente solo maneja el SuperAdmin, pero está preparado para crecer.
+ * Orquesta la ejecución de seeders para crear un hotel completamente funcional.
+ * Incluye usuarios, tenants, room types y tarifas diarias hasta 30/04/2026.
  * 
  * ARQUITECTURA ESCALABLE:
  * - Cada seeder es independiente y reutilizable
@@ -11,17 +11,21 @@
  * - Manejo de errores centralizado
  * - Feedback visual del progreso
  * 
+ * DATOS CREADOS:
+ * 1. SuperAdmin ✅ (usuario administrador)
+ * 2. Tenants ✅ (esquemas multi-tenant)
+ * 3. Initial Data ✅ (room types + tarifas diarias completas)
+ * 
  * ROADMAP FUTURO:
- * 1. SuperAdmin ✅ (actual)
- * 2. Roles básicos del sistema
- * 3. Configuraciones iniciales
- * 4. Datos de prueba para hoteles
- * 5. Tarifas y habitaciones de ejemplo
+ * 4. Roles del sistema
+ * 5. Configuraciones iniciales
+ * 6. Datos de ejemplo por tenant
  */
 
 import { DataSource } from 'typeorm'
 import { SuperAdminSeeder } from './super-admin.seeder'
 import { TenantSeeder } from './tenant.seeder'
+import { InitialDataSeeder } from './initial-data.seeder'
 
 /**
  * Clase principal que orquesta todos los seeders
@@ -46,15 +50,15 @@ export class MainSeeder {
    * ORDEN ACTUAL:
    * 1. SuperAdmin (único usuario del sistema)
    * 2. Tenants (esquemas multi-tenant de desarrollo)
+   * 3. Initial Data (room types + tarifas diarias completas)
    * 
    * ORDEN FUTURO PLANIFICADO:
    * 1. SuperAdmin ✅
    * 2. Tenants ✅
-   * 3. Roles del sistema
-   * 4. Configuraciones base
-   * 5. Hoteles de ejemplo
-   * 6. Habitaciones de ejemplo
-   * 7. Tarifas de ejemplo
+   * 3. Initial Data ✅ (room types + tarifas hasta 30/04/2026)
+   * 4. Roles del sistema
+   * 5. Configuraciones base
+   * 6. Datos de ejemplo por tenant
    * 
    * @throws Error si algún seeder falla
    */
@@ -74,13 +78,19 @@ export class MainSeeder {
       const tenantSeeder = new TenantSeeder(this.dataSource)
       await tenantSeeder.run()
 
+      // 3. Initial Data (room types + tarifas diarias)
+      // DEBE ser tercero: crea room types y todas las tarifas hasta 30/04/2026
+      console.log('3️⃣ Creando datos iniciales del hotel...')
+      const initialDataSeeder = new InitialDataSeeder(this.dataSource)
+      await initialDataSeeder.run()
+
       // TODO: Agregar más seeders aquí conforme el sistema crezca
       // 
-      // console.log('3️⃣ Creando roles del sistema...')
+      // console.log('4️⃣ Creando roles del sistema...')
       // const rolesSeeder = new RolesSeeder(this.dataSource)
       // await rolesSeeder.run()
       //
-      // console.log('4️⃣ Creando configuraciones base...')
+      // console.log('5️⃣ Creando configuraciones base...')
       // const configSeeder = new ConfigSeeder(this.dataSource)
       // await configSeeder.run()
 

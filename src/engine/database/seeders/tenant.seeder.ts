@@ -112,9 +112,6 @@ export class TenantSeeder {
       console.log('   ├─────────────────────────────────────┤')
       
       finalTenants.forEach(tenantId => {
-        const displayName = tenantId === 'default' 
-          ? 'default (desarrollo)'
-          : tenantId.replace('tenant_', '')
         console.log(`   │ ${tenantId.padEnd(35)} │`)
       })
       

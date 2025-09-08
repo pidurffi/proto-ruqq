@@ -30,6 +30,18 @@ export class MailerService {
 
   async sendMail(mailData: SendMailDto, immediate = false): Promise<EmailResult> {
     try {
+      // Verificar si el envío de emails está deshabilitado
+      const disableEmails = this.configService.get<string>('DISABLE_EMAIL_SENDING') === 'true'
+      
+      if (disableEmails) {
+        this.logger.log(`📧 Email sending disabled - would send to: ${mailData.to}`)
+        return {
+          success: true,
+          messageId: 'disabled-' + Date.now(),
+          retryAttempt: 0
+        }
+      }
+
       this.logger.log(`Sending email to: ${mailData.to}`)
       return this.sendEmailDirectly(mailData)
     } catch (error: any) {

@@ -11,7 +11,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger'
 
-import { QuotesService } from '../services/quotes.service'
+import { QuoteEngineService } from '../services/quote-engine.service'
 import { QuoteBudgetDto, QuoteResponseDto } from '../dto'
 
 /**
@@ -29,7 +29,7 @@ import { QuoteBudgetDto, QuoteResponseDto } from '../dto'
 @Controller('/quotes')
 @ApiTags('Quotes')
 export class QuotesController {
-  constructor(private readonly quotesService: QuotesService) {}
+  constructor(private readonly quoteEngineService: QuoteEngineService) {}
 
   /**
    * Endpoint público para cálculo de cotizaciones
@@ -58,6 +58,6 @@ export class QuotesController {
     description: 'Parámetros de búsqueda inválidos - fechas incorrectas o capacidad excedida' 
   })
   async calculateQuote(@Body() quoteBudgetDto: QuoteBudgetDto): Promise<QuoteResponseDto> {
-    return this.quotesService.calculateQuote(quoteBudgetDto)
+    return this.quoteEngineService.calculateQuote(quoteBudgetDto)
   }
 }
