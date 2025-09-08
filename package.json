@@ -22,6 +22,7 @@
     "db:revert": "npm run typeorm migration:revert",
     "db:migration:run": "npm run typeorm migration:run",
     "db:seed": "ts-node -r tsconfig-paths/register src/engine/database/seed.ts",
+    "db:setup": "npm run db:migrate && npm run db:seed",
     "create-engine": "node src/engine/code-generator/runner.js"
   },
   "dependencies": {

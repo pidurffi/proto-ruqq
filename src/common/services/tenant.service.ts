@@ -19,7 +19,9 @@ export class TenantService implements ITenantService {
     'default',
     'public', 
     'tenant_cliente1',
-    'tenant_cliente2',
+    'tenant_cliente2', 
+    'tenant_hotel_abc',
+    'tenant_demo',
     'cliente1',
     'cliente2'
   ]);

@@ -187,23 +187,19 @@ export class CreateMultiTenantSystem1756996231172 implements MigrationInterface 
       $$ LANGUAGE plpgsql;
     `)
 
-    // 6. Crear tenants iniciales de ejemplo
+    // 6. Crear solo el tenant 'default' (parte de la arquitectura del sistema)
     await queryRunner.query(`SELECT create_tenant_schema('default')`)
-    await queryRunner.query(`SELECT create_tenant_schema('tenant_cliente1')`)
-    await queryRunner.query(`SELECT create_tenant_schema('tenant_hotel_abc')`)
-    await queryRunner.query(`SELECT create_tenant_schema('tenant_demo')`)
 
-    console.log('✅ Multi-tenant system created successfully!')
+    console.log('✅ Multi-tenant infrastructure created successfully!')
     console.log('   - Created tenant management functions')
     console.log('   - Created tenant_creation_log table')
-    console.log('   - Created 4 initial tenants: default, tenant_cliente1, tenant_hotel_abc, tenant_demo')
+    console.log('   - Created default tenant (uses public schema)')
+    console.log('   - Run "npm run db:seed" to create additional tenants and initial data')
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Eliminar tenants creados (excepto default)
-    await queryRunner.query(`SELECT delete_tenant_schema('tenant_cliente1', true)`)
-    await queryRunner.query(`SELECT delete_tenant_schema('tenant_hotel_abc', true)`)
-    await queryRunner.query(`SELECT delete_tenant_schema('tenant_demo', true)`)
+    // No eliminar tenants específicos ya que no se crean en la migración
+    // (Se crean en el script de datos iniciales)
 
     // Eliminar funciones
     await queryRunner.query(`DROP FUNCTION IF EXISTS delete_tenant_schema(text, boolean)`)
@@ -214,6 +210,6 @@ export class CreateMultiTenantSystem1756996231172 implements MigrationInterface 
     // Eliminar tabla de log
     await queryRunner.query(`DROP TABLE IF EXISTS tenant_creation_log`)
 
-    console.log('❌ Multi-tenant system removed successfully!')
+    console.log('❌ Multi-tenant infrastructure removed successfully!')
   }
 }

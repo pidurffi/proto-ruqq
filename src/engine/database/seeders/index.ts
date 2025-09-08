@@ -21,6 +21,7 @@
 
 import { DataSource } from 'typeorm'
 import { SuperAdminSeeder } from './super-admin.seeder'
+import { TenantSeeder } from './tenant.seeder'
 
 /**
  * Clase principal que orquesta todos los seeders
@@ -44,14 +45,16 @@ export class MainSeeder {
    * 
    * ORDEN ACTUAL:
    * 1. SuperAdmin (único usuario del sistema)
+   * 2. Tenants (esquemas multi-tenant de desarrollo)
    * 
    * ORDEN FUTURO PLANIFICADO:
    * 1. SuperAdmin ✅
-   * 2. Roles del sistema
-   * 3. Configuraciones base
-   * 4. Hoteles de ejemplo
-   * 5. Habitaciones de ejemplo
-   * 6. Tarifas de ejemplo
+   * 2. Tenants ✅
+   * 3. Roles del sistema
+   * 4. Configuraciones base
+   * 5. Hoteles de ejemplo
+   * 6. Habitaciones de ejemplo
+   * 7. Tarifas de ejemplo
    * 
    * @throws Error si algún seeder falla
    */
@@ -65,13 +68,19 @@ export class MainSeeder {
       const superAdminSeeder = new SuperAdminSeeder(this.dataSource)
       await superAdminSeeder.run()
 
+      // 2. Tenants (esquemas multi-tenant)
+      // DEBE ser segundo: crea los esquemas de desarrollo para hoteles
+      console.log('2️⃣ Configurando tenants multi-tenant...')
+      const tenantSeeder = new TenantSeeder(this.dataSource)
+      await tenantSeeder.run()
+
       // TODO: Agregar más seeders aquí conforme el sistema crezca
       // 
-      // console.log('2️⃣ Creando roles del sistema...')
+      // console.log('3️⃣ Creando roles del sistema...')
       // const rolesSeeder = new RolesSeeder(this.dataSource)
       // await rolesSeeder.run()
       //
-      // console.log('3️⃣ Creando configuraciones base...')
+      // console.log('4️⃣ Creando configuraciones base...')
       // const configSeeder = new ConfigSeeder(this.dataSource)
       // await configSeeder.run()
 

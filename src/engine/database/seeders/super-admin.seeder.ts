@@ -104,9 +104,17 @@ export class SuperAdminSeeder {
 
     console.log('   👑 Creando usuario SuperAdmin...')
 
-    // Solicitar contraseña de forma segura por consola
-    const password = await this.promptPassword()
-    console.log('   ✅ Contraseña ingresada correctamente')
+    // Usar contraseña de desarrollo si está disponible en .env
+    let password = process.env.SUPERADMIN_DEV_PASSWORD
+    
+    if (password) {
+      console.log('   🔧 Usando contraseña de desarrollo desde .env')
+      console.log('   ⚠️  Para producción, eliminar SUPERADMIN_DEV_PASSWORD del .env')
+    } else {
+      // Solicitar contraseña de forma segura por consola
+      password = await this.promptPassword()
+      console.log('   ✅ Contraseña ingresada correctamente')
+    }
 
     // Generar hash seguro de la contraseña
     console.log('   🔒 Generando hash seguro...')
