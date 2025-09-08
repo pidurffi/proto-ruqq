@@ -6,8 +6,7 @@ import { CommonModule } from '../../common/common.module'
 import { AuthModule } from '../../engine/auth/auth.module'
 import { CalendarController } from './controllers/calendar.controller'
 import { CalendarService } from './services/calendar.service'
-import { PriceRulesModule } from '../price-rules/price-rules.module'
-import { BaseRatePeriodModule } from '../base-rate-period/base-rate-period.module'
+import { DailyRoomRatesModule } from '../daily-room-rates/daily-room-rates.module'  // ← Nuevo módulo OTA
 
 @Module({
   imports: [
@@ -15,8 +14,7 @@ import { BaseRatePeriodModule } from '../base-rate-period/base-rate-period.modul
     DatabaseModule, 
     CommonModule, 
     AuthModule,
-    PriceRulesModule,
-    BaseRatePeriodModule
+    DailyRoomRatesModule  // ← Reemplaza PriceRulesModule + BaseRatePeriodModule
   ],
   providers: [CalendarService],
   controllers: [CalendarController],

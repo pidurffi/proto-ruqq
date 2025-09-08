@@ -1,3 +1,0 @@
-export const repositories = {
-  BASE_RATE_PERIOD_REPOSITORY: 'BASE_RATE_PERIOD_REPOSITORY',
-}

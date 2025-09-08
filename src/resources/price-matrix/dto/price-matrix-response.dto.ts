@@ -73,7 +73,7 @@ export class PriceCellDto {
     enum: ['base_rate', 'price_rule', 'promotion'],
     required: false
   })
-  source?: 'base_rate' | 'price_rule' | 'promotion'
+  source?: 'base_rate' | 'price_rule' | 'promotion' | 'daily_rate'
 
   @ApiProperty({
     description: 'ID de la regla o período que aplicó (debugging)',

@@ -9,27 +9,25 @@ import { PriceMatrixProviders } from './providers/price-matrix.providers'
 import { PriceMatrixService } from './services/price-matrix.service'
 import { PriceMatrixController } from './controllers/price-matrix.controller'
 
-// Importar módulos de dependencias requeridas
-import { BaseRatePeriodModule } from '../base-rate-period/base-rate-period.module'
-import { PriceRulesModule } from '../price-rules/price-rules.module'
+// Importar módulo OTA unificado
+import { DailyRoomRatesModule } from '../daily-room-rates/daily-room-rates.module'  // ← Reemplaza BaseRatePeriod + PriceRules
 
 /**
- * PriceMatrixModule - Módulo para funcionalidad de matriz de precios
+ * PriceMatrixModule - REFACTORIZADO para modelo OTA diario
  * 
- * RESPONSABILIDADES:
- * - Registrar y configurar componentes del módulo PriceMatrix
- * - Gestionar dependencias con otros módulos (BaseRatePeriod, PriceRules)
- * - Exponer servicio para uso en otros módulos si es necesario
+ * SIMPLIFICACIÓN:
+ * - ANTES: Dependía de BaseRatePeriodModule + PriceRulesModule + lógica compleja
+ * - AHORA: Solo DailyRoomRatesModule (modelo OTA estándar)
  * 
- * ARQUITECTURA MODULAR:
- * - Sigue el patrón estándar de módulos NestJS del proyecto
- * - Importa módulos de dependencias para usar sus servicios y repositorios
- * - NO usa TypeOrmModule.forFeature() siguiendo las convenciones del boilerplate
+ * ELIMINAMOS:
+ * ❌ Dependencias múltiples y complejas
+ * ❌ Lógica de capas (base + overrides)
+ * ❌ Orchestración compleja entre servicios
  * 
- * DEPENDENCIES:
- * - BaseRatePeriodModule: Para acceder a BaseRatePeriodRepository
- * - PriceRulesModule: Para acceder a PriceRulesService
- * - AuthModule: Para autenticación y autorización
+ * NUEVA ARQUITECTURA:
+ * ✅ Una sola fuente de datos: daily_room_rates
+ * ✅ Compatible con APIs de OTAs
+ * ✅ Simplificación masiva del código
  */
 @Module({
   imports: [
@@ -37,8 +35,7 @@ import { PriceRulesModule } from '../price-rules/price-rules.module'
     DatabaseModule,
     CommonModule,
     AuthModule,
-    BaseRatePeriodModule, // Importar para usar BaseRatePeriodRepository
-    PriceRulesModule,     // Importar para usar PriceRulesService
+    DailyRoomRatesModule, // ← Reemplaza BaseRatePeriodModule + PriceRulesModule
   ],
   providers: [
     ...PriceMatrixProviders,

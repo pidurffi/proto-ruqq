@@ -5,9 +5,8 @@ import { DatabaseModule } from '../../engine/database/database.module'
 import { CommonModule } from '../../common/common.module'
 import { AuthModule } from '../../engine/auth/auth.module'
 import { QuotesController } from './controllers/quotes.controller'
-import { QuotesService } from './services/quotes.service'
-import { BaseRatePeriodModule } from '../base-rate-period/base-rate-period.module'
-import { PriceRulesModule } from '../price-rules/price-rules.module'
+import { QuotesService } from './services/quotes.service'  // ← Servicio actualizado
+import { DailyRoomRatesModule } from '../daily-room-rates/daily-room-rates.module'  // ← Nuevo módulo OTA
 
 @Module({
   imports: [
@@ -15,8 +14,7 @@ import { PriceRulesModule } from '../price-rules/price-rules.module'
     DatabaseModule, 
     CommonModule, 
     AuthModule,
-    BaseRatePeriodModule,
-    PriceRulesModule
+    DailyRoomRatesModule  // ← Reemplaza BaseRatePeriodModule + PriceRulesModule
   ],
   providers: [QuotesService],
   controllers: [QuotesController],

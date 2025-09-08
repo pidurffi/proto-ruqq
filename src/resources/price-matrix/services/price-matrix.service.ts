@@ -1,7 +1,7 @@
 import { Inject, Injectable, BadRequestException } from '@nestjs/common'
 
-import { BaseRatePeriodRepository } from '../../base-rate-period/repositories/base-rate-period.repository'
-import { PriceRulesService } from '../../price-rules/services/price-rules.service'
+import { DailyRoomRatesRepository } from '../../daily-room-rates/repositories/daily-room-rates.repository'
+import { DailyRatesService } from '../../daily-room-rates/services/daily-room-rates.service'
 import { 
   PriceMatrixRequestDto, 
   PriceMatrixResponseDto, 
@@ -11,40 +11,44 @@ import {
 } from '../dto'
 
 /**
- * PriceMatrixService - Servicio de Dominio para generación de matriz de precios
+ * PriceMatrixService - REFACTORIZADO para modelo OTA diario
  * 
- * RESPONSABILIDAD ÚNICA (SRP):
- * - Genera matriz de precios aplicando Motor v2.3 para cada combinación unidad/fecha
- * - Orquesta el cálculo de precios usando capas existentes (base_rate + price_rules)
- * - Mantiene arquitectura extensible para futuras capas (promociones)
+ * SIMPLIFICACIÓN MASIVA:
+ * - ANTES: Motor v2.3 complejo con múltiples capas (base_rate + price_rules + promociones)
+ * - AHORA: Query directo a daily_room_rates
  * 
- * DEPENDENCY INVERSION PRINCIPLE (DIP):
- * - Depende de abstracciones (repositories/services) no de implementaciones
- * - Inyección de dependencias para testing y mantenibilidad
+ * ELIMINAMOS COMPLETAMENTE:
+ * ❌ "Motor de Precios v2.3" y su lógica de capas
+ * ❌ Orquestación entre BaseRatePeriodRepository + PriceRulesService
+ * ❌ Conceptos de "lienzo base" y "calcomanías"
+ * ❌ Lógica compleja de aplicación de overrides
  * 
- * MOTOR DE PRECIOS v2.3 APLICADO:
- * - Capa 1: base_rate_period (lienzo base)
- * - Capa 2: price_rules (overrides/calcomanías)
- * - [FUTURO] Capa 3: promociones (descuentos especiales)
+ * NUEVA LÓGICA ULTRA-SIMPLE:
+ * ✅ Una consulta: daily_room_rates para rango de fechas
+ * ✅ Precios ya calculados y almacenados
+ * ✅ Compatible 100% con APIs de OTAs
+ * ✅ Reducción masiva de complejidad
  */
 @Injectable()
 export class PriceMatrixService {
   constructor(
-    @Inject(BaseRatePeriodRepository)
-    private readonly baseRatePeriodRepository: BaseRatePeriodRepository,
-    @Inject(PriceRulesService)
-    private readonly priceRulesService: PriceRulesService,
+    @Inject(DailyRoomRatesRepository)
+    private readonly dailyRatesRepository: DailyRoomRatesRepository,
+    @Inject(DailyRatesService)
+    private readonly dailyRatesService: DailyRatesService,
   ) {}
 
   /**
-   * Genera matriz de precios para un rango de fechas
+   * Genera matriz de precios - VERSIÓN ULTRA-SIMPLIFICADA
    * 
-   * ALGORITMO DE ALTO NIVEL:
+   * ANTES: Algoritmo complejo con Motor v2.3 (base_rate + price_rules)
+   * AHORA: Query directo a daily_room_rates
+   * 
+   * ALGORITMO SIMPLE:
    * 1. Validar rango de fechas
-   * 2. Obtener todos los room types activos
-   * 3. Para cada room type, calcular precios noche por noche
-   * 4. Aplicar Motor de Precios v2.3 (base_rate + price_rules)
-   * 5. Ensamblar matriz con estadísticas
+   * 2. Obtener room types
+   * 3. Query daily_room_rates para toda la matriz
+   * 4. Ensamblar respuesta
    * 
    * @param dto Parámetros de la solicitud (startDate, endDate)
    * @returns Matriz completa con precios y estadísticas
@@ -58,8 +62,8 @@ export class PriceMatrixService {
     // 1. VALIDAR RANGO DE FECHAS
     this.validateDateRange(startDateStr, endDateStr)
 
-    // 2. OBTENER TODOS LOS ROOM TYPES
-    const roomTypes = await this.baseRatePeriodRepository.findAllRoomTypes()
+    // 2. OBTENER TODOS LOS ROOM TYPES (desde daily_room_rates)
+    const roomTypes = await this.dailyRatesRepository.findAllRoomTypes()
     
     if (roomTypes.length === 0) {
       throw new BadRequestException('No se encontraron tipos de habitación configurados')
@@ -120,12 +124,10 @@ export class PriceMatrixService {
   }
 
   /**
-   * Calcula una fila completa de la matriz para un room type específico
+   * Calcula fila de matriz - SIMPLIFICADO
    * 
-   * ALGORITMO POR ROOM TYPE:
-   * 1. Para cada fecha del rango, calcular precio aplicando Motor v2.3
-   * 2. Generar estadísticas de la fila (min, max, promedio)
-   * 3. Retornar fila completa con metadatos
+   * ANTES: Motor v2.3 complejo aplicado fecha por fecha
+   * AHORA: Query bulk para todas las fechas del room type
    * 
    * @param roomType Tipo de habitación a procesar
    * @param dateHeaders Array de fechas a calcular
@@ -143,16 +145,38 @@ export class PriceMatrixService {
       maxCapacity: roomType.maxCapacity
     }
 
+    // NUEVA LÓGICA SIMPLE: Query bulk para todas las fechas
+    const startDate = dateHeaders[0]
+    const endDate = dateHeaders[dateHeaders.length - 1]
+    const dailyRates = await this.dailyRatesRepository.findRatesForPeriod(
+      roomType.id,
+      startDate,
+      endDate
+    )
+
     const prices: PriceCellDto[] = []
     let validPrices: number[] = []
 
-    // Calcular precio para cada fecha
+    // Mapear fechas a precios
     for (const date of dateHeaders) {
-      const priceCell = await this.calculateSinglePrice(roomType, date)
-      prices.push(priceCell)
+      const rate = dailyRates.find(r => r.date.toISOString().split('T')[0] === date)
       
-      if (priceCell.available && priceCell.price > 0) {
-        validPrices.push(priceCell.price)
+      if (rate && rate.availableRooms > 0) {
+        const price = Number(rate.baseRate)
+        prices.push({
+          date,
+          price,
+          available: true,
+          source: 'daily_rate',
+          appliedRuleId: rate.id
+        })
+        validPrices.push(price)
+      } else {
+        prices.push({
+          date,
+          price: 0,
+          available: false
+        })
       }
     }
 
@@ -171,115 +195,7 @@ export class PriceMatrixService {
     }
   }
 
-  /**
-   * Calcula el precio para una combinación específica room_type + fecha
-   * 
-   * MOTOR DE PRECIOS v2.3 APLICADO:
-   * 1. Capa Base: Obtener precio de base_rate_period
-   * 2. Capa Override: Aplicar price_rule si existe
-   * 3. [FUTURO] Capa Promoción: Aplicar descuentos especiales
-   * 
-   * CAPACIDAD BASE ASUMIDA:
-   * - Para la matriz, calculamos precio para capacidad base del room type
-   * - Esto evita complejidad de modificadores por ocupación en la vista
-   * 
-   * @param roomType Tipo de habitación
-   * @param date Fecha específica (YYYY-MM-DD)
-   * @returns Celda de precio con metadatos
-   */
-  private async calculateSinglePrice(
-    roomType: any,
-    date: string
-  ): Promise<PriceCellDto> {
-    try {
-      // PASO 1: Obtener precio base de base_rate_period
-      const basePrice = await this.getBasePriceForNight(roomType.id, date)
-      
-      if (!basePrice) {
-        return {
-          date,
-          price: 0,
-          available: false
-        }
-      }
 
-      // PASO 2: Aplicar price_rule si existe (Capa Override)
-      const currentDate = new Date(date)
-      const priceRule = await this.priceRulesService.findApplicableRule(
-        roomType.id,
-        currentDate
-      )
-
-      let finalPrice = basePrice.price
-      let source: 'base_rate' | 'price_rule' | 'promotion' = 'base_rate'
-      let appliedRuleId = basePrice.periodId
-
-      if (priceRule) {
-        finalPrice = this.priceRulesService.calculateAdjustedPrice(
-          basePrice.price,
-          priceRule
-        )
-        source = 'price_rule'
-        appliedRuleId = priceRule.id
-      }
-
-      // PASO 3: [FUTURO] Aplicar promociones aquí
-      // const promotion = await this.promotionsService.findApplicablePromotion(roomType.id, date)
-      // if (promotion) {
-      //   finalPrice = this.promotionsService.calculatePromotionalPrice(finalPrice, promotion)
-      //   source = 'promotion'
-      //   appliedRuleId = promotion.id
-      // }
-
-      return {
-        date,
-        price: Math.round(finalPrice * 100) / 100,
-        available: true,
-        source,
-        appliedRuleId
-      }
-
-    } catch (error) {
-      // En caso de error, retornar celda no disponible
-      return {
-        date,
-        price: 0,
-        available: false
-      }
-    }
-  }
-
-  /**
-   * Obtiene el precio base para una noche específica desde base_rate_period
-   * 
-   * REUTILIZACIÓN DE LÓGICA:
-   * - Misma lógica que QuotesService para consistencia
-   * - Mantiene coherencia en el Motor de Precios
-   * 
-   * @param roomTypeId ID del tipo de habitación
-   * @param date Fecha específica
-   * @returns Precio base y ID del período o null si no hay tarifa
-   */
-  private async getBasePriceForNight(
-    roomTypeId: string,
-    date: string
-  ): Promise<{ price: number; periodId: string } | null> {
-    const periods = await this.baseRatePeriodRepository.findRelevantPeriods(
-      roomTypeId,
-      date,
-      this.addDays(date, 1)
-    )
-
-    if (periods.length === 0) {
-      return null
-    }
-
-    const period = periods[0]
-    return {
-      price: Number(period.price),
-      periodId: period.id
-    }
-  }
 
   /**
    * Valida que el rango de fechas sea lógico y no exceda límites

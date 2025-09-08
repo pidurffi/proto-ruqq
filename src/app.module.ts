@@ -12,15 +12,17 @@ import { AuthModule } from './engine/auth/auth.module'
 import { DatabaseModule } from './engine/database/database.module'
 
 import { RoomTypeModule } from './resources/room-type/room-type.module';
-import { BaseRatePeriodModule } from './resources/base-rate-period/base-rate-period.module';
-import { OccupancyRateModifiersModule } from './resources/occupancy-rate-modifiers/occupancy-rate-modifiers.module';
+import { DailyRoomRatesModule } from './resources/daily-room-rates/daily-room-rates.module';
+// ❌ ELIMINADOS - Reemplazados por DailyRoomRatesModule:
+// import { BaseRatePeriodModule } from './resources/base-rate-period/base-rate-period.module';
+// import { OccupancyRateModifiersModule } from './resources/occupancy-rate-modifiers/occupancy-rate-modifiers.module';
+// import { PriceRulesModule } from './resources/price-rules/price-rules.module';
 import { QuotesModule } from './resources/quotes/quotes.module';
 import { ContentBlockModule } from './resources/content-block/content-block.module';
 import { QuoteTemplateModule } from './resources/quote-template/quote-template.module';
 import { QuoteTemplateBlockModule } from './resources/quote-template-block/quote-template-block.module';
 import { QuoteGeneratorModule } from './resources/quote-generator/quote-generator.module';
 import { RestrictionsModule } from './resources/restrictions/restrictions.module';
-import { PriceRulesModule } from './resources/price-rules/price-rules.module';
 import { CalendarModule } from './resources/calendar/calendar.module';
 import { PriceMatrixModule } from './resources/price-matrix/price-matrix.module';
 //ImportTemplateModule
@@ -68,15 +70,17 @@ const loadJsonConfig = () => {
     CommonModule,
 
     RoomTypeModule,
-    BaseRatePeriodModule,
-    OccupancyRateModifiersModule,
+    DailyRoomRatesModule,
+    // ❌ ELIMINADOS - Reemplazados por DailyRoomRatesModule:
+    // BaseRatePeriodModule,
+    // OccupancyRateModifiersModule,
+    // PriceRulesModule,
     QuotesModule,
     ContentBlockModule,
     QuoteTemplateModule,
     QuoteTemplateBlockModule,
     QuoteGeneratorModule,
     RestrictionsModule,
-    PriceRulesModule,
     CalendarModule,
     PriceMatrixModule,
     //TemplateModule

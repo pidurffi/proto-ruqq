@@ -1,9 +1,10 @@
 import { Entity, Column, OneToMany } from 'typeorm'
 
 import { EntityBase } from '../../../common/entities/base.entity'
-import { BaseRatePeriod } from '../../base-rate-period/entities/base-rate-period.entity'
+// import { BaseRatePeriod } from '../../base-rate-period/entities/base-rate-period.entity'  // ❌ ELIMINADO
 import { Restrictions } from '../../restrictions/entities/restrictions.entity'
-import { PriceRule } from '../../price-rules/entities/price-rules.entity'
+// import { PriceRule } from '../../price-rules/entities/price-rules.entity'  // ❌ ELIMINADO
+import { DailyRoomRate } from '../../daily-room-rates/entities/daily-room-rate.entity'  // ✅ NUEVO
 
 @Entity({ name: 'room_type' })
 export class RoomType extends EntityBase {
@@ -44,12 +45,18 @@ export class RoomType extends EntityBase {
   })
   maxCapacity: number
 
-  @OneToMany(() => BaseRatePeriod, baseRatePeriod => baseRatePeriod.roomType)
-  baseRatePeriods: BaseRatePeriod[]
+  // ❌ ELIMINADO - Reemplazado por dailyRoomRates
+  // @OneToMany(() => BaseRatePeriod, baseRatePeriod => baseRatePeriod.roomType)
+  // baseRatePeriods: BaseRatePeriod[]
 
   @OneToMany(() => Restrictions, restriction => restriction.roomType)
   restrictions: Restrictions[]
 
-  @OneToMany(() => PriceRule, priceRule => priceRule.roomType)
-  priceRules: PriceRule[]
+  // ❌ ELIMINADO - Reemplazado por dailyRoomRates
+  // @OneToMany(() => PriceRule, priceRule => priceRule.roomType)
+  // priceRules: PriceRule[]
+
+  // ✅ NUEVO - Modelo OTA unificado
+  @OneToMany(() => DailyRoomRate, dailyRate => dailyRate.roomType)
+  dailyRoomRates: DailyRoomRate[]
 }
