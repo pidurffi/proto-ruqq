@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm'
 
 import { EntityBase } from '../../../common/entities/base.entity'
 import { RoomType } from '../../room-type/entities/room-type.entity'
+import { RatePlan } from '../../rate-plan/entities/rate-plan.entity'
 
 /**
  * DailyRoomRate - Modelo OTA Estándar de Calendario Diario
@@ -25,9 +26,10 @@ import { RoomType } from '../../room-type/entities/room-type.entity'
  * - Flexibilidad total por día (como las OTAs reales)
  */
 @Entity({ name: 'daily_room_rates' })
-@Index('idx_daily_rates_main', ['roomTypeId', 'date'], { unique: true })
+@Index('idx_daily_rates_main', ['roomTypeId', 'ratePlanId', 'date'], { unique: true })
 @Index('idx_daily_rates_date_active', ['date', 'isActive'])
 @Index('idx_daily_rates_availability', ['roomTypeId', 'date', 'availableRooms'])
+@Index('idx_daily_rates_rate_plan', ['ratePlanId'])
 export class DailyRoomRate extends EntityBase {
   //========================================
   // CLAVE COMPUESTA - ESTILO OTA
@@ -35,6 +37,14 @@ export class DailyRoomRate extends EntityBase {
   
   @Column({ type: 'uuid', name: 'room_type_id', nullable: false })
   roomTypeId: string
+
+  @Column({ 
+    type: 'uuid', 
+    name: 'rate_plan_id', 
+    nullable: false,
+    comment: 'ID del rate plan asociado (BAR, Non-Refundable, Con Desayuno, etc.)'
+  })
+  ratePlanId: string
 
   @Column({ 
     type: 'date', 
@@ -165,4 +175,8 @@ export class DailyRoomRate extends EntityBase {
   @ManyToOne(() => RoomType, { eager: false })
   @JoinColumn({ name: 'room_type_id' })
   roomType: RoomType
+
+  @ManyToOne(() => RatePlan, { eager: false })
+  @JoinColumn({ name: 'rate_plan_id' })
+  ratePlan: RatePlan
 }

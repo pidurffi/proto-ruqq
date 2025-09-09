@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { Repository, DataSource, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm'
+import { Repository, DataSource } from 'typeorm'
 
 import { DailyRoomRate } from '../entities/daily-room-rate.entity'
 import { resources } from '../../../engine/database/constants'
@@ -40,13 +40,13 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
     onlyActive: boolean = true
   ): Promise<DailyRoomRate[]> {
     const query = this.createQueryBuilder('rate')
-      .where('rate.roomTypeId = :roomTypeId', { roomTypeId })
+      .where('rate.room_type_id = :roomTypeId', { roomTypeId })
       .andWhere('rate.date >= :startDate', { startDate })
       .andWhere('rate.date <= :endDate', { endDate })
       .orderBy('rate.date', 'ASC')
 
     if (onlyActive) {
-      query.andWhere('rate.isActive = true')
+      query.andWhere('rate.is_active = true')
     }
 
     return query.getMany()
@@ -63,12 +63,12 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
     minRooms: number = 1
   ): Promise<DailyRoomRate[]> {
     return this.createQueryBuilder('rate')
-      .where('rate.roomTypeId = :roomTypeId', { roomTypeId })
+      .where('rate.room_type_id = :roomTypeId', { roomTypeId })
       .andWhere('rate.date >= :startDate', { startDate })
       .andWhere('rate.date <= :endDate', { endDate })
-      .andWhere('rate.isActive = true')
-      .andWhere('rate.availableRooms >= :minRooms', { minRooms })
-      .andWhere('rate.closedToArrival = false')
+      .andWhere('rate.is_active = true')
+      .andWhere('rate.available_rooms >= :minRooms', { minRooms })
+      .andWhere('rate.closed_to_arrival = false')
       .orderBy('rate.date', 'ASC')
       .getMany()
   }
@@ -107,14 +107,14 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
     const result = await this.createQueryBuilder('rate')
       .select([
         'COUNT(*) as totalDays',
-        'SUM(CASE WHEN rate.availableRooms > 0 THEN 1 ELSE 0 END) as availableDays',
-        'AVG(rate.baseRate) as avgRate',
-        'SUM(rate.availableRooms) as totalInventory'
+        'SUM(CASE WHEN rate.available_rooms > 0 THEN 1 ELSE 0 END) as availableDays',
+        'AVG(rate.base_rate) as avgRate',
+        'SUM(rate.available_rooms) as totalInventory'
       ])
-      .where('rate.roomTypeId = :roomTypeId', { roomTypeId })
+      .where('rate.room_type_id = :roomTypeId', { roomTypeId })
       .andWhere('rate.date >= :startDate', { startDate })
       .andWhere('rate.date <= :endDate', { endDate })
-      .andWhere('rate.isActive = true')
+      .andWhere('rate.is_active = true')
       .getRawOne()
 
     return {
@@ -130,7 +130,12 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
   //========================================
 
   /**
-   * Insertar o actualizar múltiples tarifas (UPSERT)
+   * Insertar o actualizar múltiples tarifas (UPSERT masivo)
+   * 
+   * COMPORTAMIENTO:
+   * - INSERT: Si no existe registro para room_type_id + rate_plan_id + date
+   * - UPDATE: Si existe, actualiza baseRate, availableRooms, isActive, updatedAt
+   * 
    * Para cargas masivas de temporadas o actualizaciones de Channel Manager
    */
   async upsertRates(rates: Partial<DailyRoomRate>[]): Promise<void> {
@@ -140,7 +145,7 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
       .insert()
       .into(DailyRoomRate)
       .values(rates)
-      .orUpdate(['baseRate', 'availableRooms', 'isActive', 'updatedAt'], ['roomTypeId', 'date'])
+      .orUpdate(['base_rate', 'available_rooms', 'is_active', 'updated_at'], ['room_type_id', 'rate_plan_id', 'date'])
       .execute()
   }
 
@@ -160,7 +165,7 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
         ...updates,
         updatedAt: new Date()
       })
-      .where('roomTypeId = :roomTypeId', { roomTypeId })
+      .where('room_type_id = :roomTypeId', { roomTypeId })
       .andWhere('date >= :startDate', { startDate })
       .andWhere('date <= :endDate', { endDate })
       .execute()
@@ -177,7 +182,7 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
   ): Promise<void> {
     await this.createQueryBuilder()
       .softDelete()
-      .where('roomTypeId = :roomTypeId', { roomTypeId })
+      .where('room_type_id = :roomTypeId', { roomTypeId })
       .andWhere('date >= :startDate', { startDate })
       .andWhere('date <= :endDate', { endDate })
       .execute()
@@ -198,7 +203,10 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
   ): Promise<Date[]> {
     const existingRates = await this.findRatesForPeriod(roomTypeId, startDate, endDate, false)
     const existingDates = new Set(
-      existingRates.map(rate => rate.date.toISOString().split('T')[0])
+      existingRates.map(rate => {
+        const date = rate.date instanceof Date ? rate.date : new Date(rate.date)
+        return date.toISOString().split('T')[0]
+      })
     )
 
     const missingDates: Date[] = []

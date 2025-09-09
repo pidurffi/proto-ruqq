@@ -135,8 +135,16 @@ export class QuoteGeneratorService {
     const formattedRooms = quoteData.available
       .map((roomTypeQuote: RoomTypeQuoteDto) => {
         const roomName = roomTypeQuote.roomType.name
-        const totalPrice = roomTypeQuote.totalPrice
-        const totalNights = roomTypeQuote.totalNights
+        
+        // Get the BAR rate plan or the first available rate plan
+        const ratePlan = roomTypeQuote.ratePlans.find(rp => rp.ratePlan.code === 'BAR') || roomTypeQuote.ratePlans[0]
+        
+        if (!ratePlan) {
+          return `${roomName}: No hay tarifas disponibles`
+        }
+        
+        const totalPrice = ratePlan.totalPrice
+        const totalNights = ratePlan.totalNights
         const pricePerNight = totalNights > 0 ? (totalPrice / totalNights).toFixed(2) : totalPrice.toFixed(2)
         
         return `${roomName}: $${pricePerNight} por noche (Total: $${totalPrice.toFixed(2)})`

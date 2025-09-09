@@ -73,20 +73,66 @@ export class QuoteSegmentDto {
 }
 
 /**
- * DTO que representa la cotización completa para un tipo de habitación
+ * DTO que representa la información básica de un room type
+ */
+export class RoomTypeInfoDto {
+  @ApiProperty({
+    description: 'ID único del room type',
+    example: '550e8400-e29b-41d4-a716-446655440000'
+  })
+  id: string
+
+  @ApiProperty({
+    description: 'Nombre del tipo de habitación',
+    example: 'Suite'
+  })
+  name: string
+
+  @ApiProperty({
+    description: 'Código del tipo de habitación',
+    example: 'SUI'
+  })
+  code: string
+
+  @ApiProperty({
+    description: 'Capacidad base del room type',
+    example: 2
+  })
+  baseCapacity: number
+
+  @ApiProperty({
+    description: 'Capacidad máxima del room type',
+    example: 4
+  })
+  maxCapacity: number
+}
+
+/**
+ * DTO que representa la cotización completa para un tipo de habitación con múltiples rate plans
  * Aggregate en términos de DDD - agrupa todos los datos relacionados de la cotización
  */
 export class RoomTypeQuoteDto {
   @ApiProperty({
     description: 'Información del tipo de habitación'
   })
-  roomType: {
-    id: string
-    name: string
-    code: string
-    baseCapacity: number
-    maxCapacity: number
-  }
+  roomType: RoomTypeInfoDto
+
+  @ApiProperty({
+    description: 'Array de rate plans disponibles para este room type',
+    isArray: true
+  })
+  ratePlans: any[] // Cambiamos a any[] temporalmente para evitar circular dependency
+}
+
+/**
+ * DTO LEGACY - Mantenido para compatibilidad hacia atrás
+ * @deprecated Usar RoomTypeQuoteDto con múltiples rate plans
+ */
+export class LegacyRoomTypeQuoteDto {
+  @ApiProperty({
+    description: 'Información del tipo de habitación'
+  })
+  roomType: RoomTypeInfoDto
 
   @ApiProperty({
     description: 'Total de noches',

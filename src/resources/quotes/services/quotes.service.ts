@@ -174,15 +174,24 @@ export class QuotesService {
 
     const totalPrice = segments.reduce((sum, segment) => sum + segment.subtotal, 0)
 
-    // PASO E: ¡ÉXITO! - Cotización lista
+    // PASO E: ¡ÉXITO! - Cotización lista (usando Legacy DTO)
     return {
       isAvailable: true,
       quote: {
         roomType: roomTypeInfo,
-        totalNights: expectedNights,
-        segments,
-        totalPrice: Math.round(totalPrice * 100) / 100
-      }
+        ratePlans: [{
+          ratePlan: {
+            id: 'legacy-bar',
+            name: 'Best Available Rate',
+            code: 'BAR',
+            isRefundable: true
+          },
+          totalNights: expectedNights,
+          segments,
+          totalPrice: Math.round(totalPrice * 100) / 100,
+          averageNightlyRate: Math.round((totalPrice / expectedNights) * 100) / 100
+        }]
+      } as RoomTypeQuoteDto
     }
   }
 

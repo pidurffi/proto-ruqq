@@ -1,5 +1,6 @@
 import { Injectable, Inject, BadRequestException } from '@nestjs/common'
 import { DataSource } from 'typeorm'
+import { v4 as uuidv4 } from 'uuid'
 
 import { BaseEntityService } from '../../../common/services/base-entity.service'
 import { DailyRoomRate } from '../entities/daily-room-rate.entity'
@@ -72,6 +73,7 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
       closedToArrival?: boolean
       closedToDeparture?: boolean
       pricingSource?: PricingSource
+      ratePlanId?: string
     } = {}
   ): Promise<void> {
     // Validación básica
@@ -79,16 +81,25 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
       throw new BadRequestException('La fecha de inicio debe ser anterior a la fecha de fin')
     }
 
+    // Obtener rate plan (usar caché o proporcionado)
+    const ratePlanId = options.ratePlanId || await this.getDefaultRatePlanId()
+
     // Generar fechas del rango
     const dates = this.generateDateRange(startDate, endDate)
     
+    // Validar y normalizar UUID
+    const validUid = this.validateAndNormalizeUid(uid)
+    const hasValidUid = this.isValidUuid(uid)
+
     // Crear registros para UPSERT
     const rates = dates.map(date => ({
       roomTypeId,
+      ratePlanId,
       date,
       baseRate,
       availableRooms,
-      uid,
+      uid: validUid,
+      ...(hasValidUid ? { lastUpdatedBy: uid } : {}),
       isActive: true,
       pricingSource: options.pricingSource || PricingSource.MANUAL,
       ...options
@@ -157,12 +168,21 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
       return 0
     }
 
+    // Obtener rate plan por defecto
+    const ratePlanId = await this.getDefaultRatePlanId()
+    
+    // Validar y normalizar UUID
+    const validUid = this.validateAndNormalizeUid(uid)
+    const hasValidUid = this.isValidUuid(uid)
+
     const rates = missingDates.map(date => ({
       roomTypeId,
+      ratePlanId,
       date,
       baseRate: defaultRate,
       availableRooms: defaultAvailableRooms,
-      uid,
+      uid: validUid,
+      ...(hasValidUid ? { lastUpdatedBy: uid } : {}),
       isActive: true,
       pricingSource: PricingSource.SYSTEM_DEFAULT
     }))
@@ -174,6 +194,46 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
   //========================================
   // UTILIDADES SIMPLES
   //========================================
+
+  /**
+   * Cache para rate plan BAR por defecto para evitar queries repetitivas
+   */
+  private defaultRatePlanId: string | null = null
+
+  /**
+   * Obtener rate plan BAR por defecto (con caché)
+   */
+  private async getDefaultRatePlanId(): Promise<string> {
+    if (this.defaultRatePlanId) {
+      return this.defaultRatePlanId
+    }
+
+    const barRatePlan = await this.dataSource.query(
+      'SELECT id FROM rate_plans WHERE code = $1 AND deleted_at IS NULL LIMIT 1',
+      ['BAR']
+    )
+    
+    if (!barRatePlan.length) {
+      throw new BadRequestException('No se encontró el rate plan BAR por defecto')
+    }
+
+    this.defaultRatePlanId = barRatePlan[0].id
+    return this.defaultRatePlanId
+  }
+
+  /**
+   * Validar si un string es un UUID válido
+   */
+  private isValidUuid(uid: string): boolean {
+    return !!(uid && uid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i))
+  }
+
+  /**
+   * Validar y normalizar UUID para uso en base de datos
+   */
+  private validateAndNormalizeUid(uid: string): string {
+    return this.isValidUuid(uid) ? uid : '00000000-0000-0000-0000-000000000000'
+  }
 
   /**
    * Generar array de fechas para un rango

@@ -159,7 +159,10 @@ export class PriceMatrixService {
 
     // Mapear fechas a precios
     for (const date of dateHeaders) {
-      const rate = dailyRates.find(r => r.date.toISOString().split('T')[0] === date)
+      const rate = dailyRates.find(r => {
+        const rateDate = r.date instanceof Date ? r.date : new Date(r.date)
+        return rateDate.toISOString().split('T')[0] === date
+      })
       
       if (rate && rate.availableRooms > 0) {
         const price = Number(rate.baseRate)
