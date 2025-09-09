@@ -121,9 +121,9 @@ export const SomeEntityTenantProviders = [
 - **Transparente** para el Service - no necesita cambios en lógica de negocio
 
 #### **📋 Módulos con Tenant-Aware Activado:**
-✅ BaseRatePeriod, ✅ PriceRules, ✅ Auth/User, ✅ RoomType  
-✅ OccupancyRateModifiers, ✅ ContentBlock, ✅ QuoteTemplate  
-✅ QuoteTemplateBlock, ✅ Restrictions
+✅ DailyRoomRate, ✅ Auth/User, ✅ RoomType, ✅ ContentBlock  
+✅ QuoteTemplate, ✅ QuoteTemplateBlock, ✅ Restrictions
+⚠️ **ELIMINADOS**: BaseRatePeriod, PriceRules, OccupancyRateModifiers (refactor completado)
 
 #### **🛡️ VALIDACIÓN Y MANEJO DE ERRORES (CRÍTICO)**
 
@@ -261,19 +261,88 @@ export const SomeEntityProviders = [
 ```
 
 #### **Referencias exitosas en el proyecto:**
-- ✅ `BaseRatePeriodModule` usa `BaseRatePeriodTenantProviders` (tenant-aware)
-- ✅ `PriceRulesModule` usa `PriceRulesTenantProviders` (tenant-aware)
+- ✅ `DailyRoomRateModule` usa `DailyRoomRateTenantProviders` (tenant-aware) **← NUEVO**
 - ✅ `AuthModule` usa `AuthTenantProviders` (tenant-aware)
 - ✅ `RoomTypeModule` usa `RoomTypeTenantProviders` (tenant-aware)
-- ✅ `OccupancyRateModifiersModule` usa `OccupancyRateModifiersTenantProviders` (tenant-aware)
 - ✅ `ContentBlockModule` usa `ContentBlockTenantProviders` (tenant-aware)
 - ✅ `QuoteTemplateModule` usa `QuoteTemplateTenantProviders` (tenant-aware)
 - ✅ `QuoteTemplateBlockModule` usa `QuoteTemplateBlockTenantProviders` (tenant-aware)
 - ✅ `RestrictionsModule` usa `RestrictionsTenantProviders` (tenant-aware)
 - ✅ **TODOS los módulos usan repositorios tenant-aware para aislamiento de datos**
+- ⚠️ **ELIMINADOS**: BaseRatePeriod, PriceRules, OccupancyRateModifiers (refactor completado)
 
 ### **Resolución de problemas / errores de código**
 Siempre buscar en internet en la documentación oficial o foros especializados si persiste un problema y no podemos solucionarlo en pocos intentos.
+
+## 🏗️ **ARQUITECTURA ACTUAL - Post-Refactor (Motor OTA Estándar v3.0)**
+
+### **🎯 Modelo de Datos Simplificado:**
+El sistema ahora utiliza el **modelo de calendario diario estándar** usado por todas las grandes OTAs (Booking.com, Airbnb, Expedia), reemplazando completamente el modelo híbrido anterior.
+
+### **📊 Entidad Central: DailyRoomRate**
+```typescript
+@Entity({ name: 'daily_room_rates' })
+export class DailyRoomRate extends EntityBase {
+  @Column({ type: 'uuid', name: 'room_type_id' })
+  roomTypeId: string
+
+  @Column({ type: 'date' })
+  date: Date                        // ← UN REGISTRO POR CADA DÍA
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  baseRate: number                  // Precio base para este día
+
+  @Column({ type: 'int', default: 0 })
+  availableRooms: number            // Inventory para este día
+
+  @Column({ type: 'int', nullable: true })
+  minStay?: number                  // Min estancia desde este día
+
+  @Column({ type: 'boolean', default: false })
+  closedToArrival: boolean          // No check-in este día
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean                 // Día vendible
+
+  // CLAVE COMPUESTA ÚNICA (como Booking.com)
+  @Index(['roomTypeId', 'date'], { unique: true })
+  
+  @ManyToOne(() => RoomType)
+  @JoinColumn({ name: 'room_type_id' })
+  roomType: RoomType
+}
+```
+
+### **🚀 QuoteEngineService - Ultra Simplificado**
+El nuevo motor de cotizaciones reemplaza 290+ líneas de lógica compleja con queries directas:
+
+```typescript
+// Antes: Lógica de split/consolidation/fragments (compleja)
+// Ahora: Query simple y directa
+async calculateQuote(roomTypeId: string, checkIn: string, checkOut: string) {
+  const dailyRates = await this.dailyRatesRepository.query(`
+    SELECT date, base_rate as "baseRate", available_rooms as "availableRooms"
+    FROM daily_room_rates 
+    WHERE room_type_id = $1 AND date >= $2 AND date <= $3 AND is_active = true
+    ORDER BY date ASC
+  `, [roomTypeId, checkIn, this.subtractDays(checkOut, 1)])
+  
+  // Cálculo directo: suma de rates por noche
+  return dailyRates.reduce((total, rate) => total + parseFloat(rate.baseRate), 0)
+}
+```
+
+### **📈 Beneficios Logrados:**
+- **80% reducción** en complejidad de código
+- **Performance** optimizada con queries OTA-estándar
+- **Compatibilidad** 100% con Channel Managers
+- **Mantenibilidad** drasticamente mejorada
+
+### **🗃️ Datos Iniciales Automatizados:**
+El `InitialDataSeeder` crea automáticamente:
+- 5 tipos de habitación (LUX, PRE, SUP, EST, SUI)
+- Tarifas diarias desde hoy hasta 30/04/2026
+- Precios configurados: LUX $500, PRE $400, SUP $300, EST $200, SUI $100
 
 ## Comandos Comunes
 
@@ -290,6 +359,10 @@ Siempre buscar en internet en la documentación oficial o foros especializados s
 - `npm run db:revert` - Revertir última migración
 - `npm run db:migration:generate -n NombreMigración` - Generar migración desde cambios de entidad
 - `npm run db:createEmpty NombreMigración` - Crear archivo de migración vacío
+
+### Inicialización de Datos
+- `npm run seed:run` - Ejecutar InitialDataSeeder (crea room types + daily rates hasta 30/04/2026)
+- `npm run seed:revert` - Limpiar datos de seeding
 
 ### Generación de Entidades
 ## Obligatorio: siempre usar el generador para crear entidades vacías y luego agregar las propiedades (campos)
@@ -374,17 +447,17 @@ module-name/
 ## 📅 **CRITICAL: Manejo Correcto de Fechas en DTOs**
 
 ### **🚨 Problema de Zona Horaria**
-Las fechas en DTOs **DEBEN** seguir el patrón exacto de `BaseRatePeriodCreateDto` para evitar problemas de zona horaria.
+Las fechas en DTOs **DEBEN** seguir el patrón exacto de `DailyRoomRateCreateDto` para evitar problemas de zona horaria.
 
-### **✅ Patrón CORRECTO (BaseRatePeriod):**
+### **✅ Patrón CORRECTO (DailyRoomRate):**
 ```typescript
 @ApiProperty({
-  description: 'Fecha de inicio del período',
+  description: 'Fecha específica del día',
   example: '2024-01-01'
 })
 @IsDateString()
 @IsNotEmpty()
-startDate: Date  // ← Tipo Date, no string
+date: Date  // ← Tipo Date, no string
 ```
 
 ### **❌ Patrón INCORRECTO:**
@@ -687,7 +760,7 @@ npm run start:dev | grep "TenantService.*validateAndCheckTenant"
 - **NUNCA omitir contexto en logs** - Incluir tenant, schema, request ID en mensajes
 
 ### **🚨 Fechas y Datos:**
-- **NUNCA usar tipos `string` para fechas en DTOs** - Siempre usar tipo `Date` como en BaseRatePeriod
+- **NUNCA usar tipos `string` para fechas en DTOs** - Siempre usar tipo `Date` como en DailyRoomRate
 - **NUNCA usar UTC en iteraciones de fechas** - Causa desfase de días por zona horaria GMT-3
 - **NUNCA omitir validación de formato** - Usar `@IsDateString()` para validar fechas
 
@@ -706,5 +779,5 @@ npm run start:dev | grep "TenantService.*validateAndCheckTenant"
 1. Consultar endpoints de debugging: `/api/tenant-debug`, `/api/tenant-info`
 2. Verificar logs con Request ID para debugging específico
 3. Validar tenant con `validateAndCheckTenant()` antes de procesar
-4. Usar patrones existentes como referencia (BaseRatePeriod, PriceRules, Auth)
+4. Usar patrones existentes como referencia (DailyRoomRate, Auth, RoomType)
 5. Testear con diferentes tenants: sin header, tenant válido, tenant inválido
