@@ -3,7 +3,12 @@ import { Inject, Injectable, BadRequestException } from '@nestjs/common'
 import { DailyRoomRatesRepository } from '../../daily-room-rates/repositories/daily-room-rates.repository'
 import { DailyRatesService } from '../../daily-room-rates/services/daily-room-rates.service'
 import { RoomTypeRepository } from '../../room-type/repositories/room-type.repository'
+import { QuoteTemplateRepository } from '../../quote-template/repositories/quote-template.repository'
+import { ContentBlockRepository } from '../../content-block/repositories/content-block.repository'
+import { DataSource } from 'typeorm'
+import { resources } from '../../../engine/database/constants'
 import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto, QuoteSegmentDto, UnavailableRoomTypeDto, RejectionReasonCode } from '../dto'
+import { QuoteEngineService } from './quote-engine.service'
 
 /**
  * QuotesService - REFACTORIZADO para modelo OTA estándar
@@ -36,6 +41,13 @@ export class QuotesService {
     private readonly dailyRatesService: DailyRatesService,
     @Inject(RoomTypeRepository)
     private readonly roomTypeRepository: RoomTypeRepository,
+    @Inject(QuoteTemplateRepository)
+    private readonly quoteTemplateRepository: QuoteTemplateRepository,
+    @Inject(ContentBlockRepository)
+    private readonly contentBlockRepository: ContentBlockRepository,
+    @Inject(resources.DATA_SOURCE_POSTGRES)
+    private readonly dataSource: DataSource,
+    private readonly quoteEngineService: QuoteEngineService,
   ) {}
 
   /**
@@ -279,5 +291,90 @@ export class QuotesService {
     const date = new Date(dateString)
     date.setDate(date.getDate() - days)
     return date.toISOString().split('T')[0]
+  }
+
+  /**
+   * Generar presupuesto formateado usando template por defecto
+   */
+  async generateFormattedQuote(quoteBudgetDto: QuoteBudgetDto): Promise<string> {
+    // 1. Obtener cotización básica
+    const quote = await this.quoteEngineService.calculateQuote(quoteBudgetDto)
+    
+    if (!quote.available || !quote.available.length) {
+      throw new BadRequestException('No hay habitaciones disponibles para las fechas seleccionadas')
+    }
+
+    // 2. Obtener template por defecto
+    const template = await this.quoteTemplateRepository.findOne({
+      where: { isDefault: true }
+    })
+
+    if (!template) {
+      throw new BadRequestException('No se encontró template por defecto')
+    }
+
+    // 3. Obtener content blocks de la template en orden
+    const templateBlocks = await this.dataSource.query(`
+      SELECT cb.content, cb.type, qtb.sort_order
+      FROM quote_template_block qtb
+      JOIN content_block cb ON qtb.content_block_id = cb.id
+      WHERE qtb.quote_template_id = $1 AND qtb.deleted_at IS NULL AND cb.deleted_at IS NULL
+      ORDER BY qtb.sort_order ASC
+    `, [template.id])
+
+    // 4. Obtener room types con descripciones
+    const roomTypesWithDetails = await this.dataSource.query(`
+      SELECT id, name, code, description, area_m2, base_capacity
+      FROM room_type
+      WHERE deleted_at IS NULL
+    `)
+
+    // 5. Generar contenido formateado
+    let formattedQuote = ''
+    
+    // Formatear fechas
+    const checkInFormatted = this.formatDateForDisplay(quoteBudgetDto.checkInDate.toString())
+    const checkOutFormatted = this.formatDateForDisplay(quoteBudgetDto.checkOutDate.toString())
+    const totalNights = this.calculateNightsBetween(
+      quoteBudgetDto.checkInDate.toString(), 
+      this.subtractDays(quoteBudgetDto.checkOutDate.toString(), 1)
+    )
+
+    // Para cada room type disponible, generar su descripción
+    for (const roomTypeQuote of quote.available) {
+      const roomDetails = roomTypesWithDetails.find((rt: any) => rt.id === roomTypeQuote.roomType.id)
+      if (!roomDetails) continue
+
+      const ratePlan = roomTypeQuote.ratePlans[0]
+      if (!ratePlan) continue
+
+      // Formato específico que pediste
+      formattedQuote += `Del ${checkInFormatted} al ${checkOutFormatted}, ${totalNights} noches, para ${quoteBudgetDto.pax}/4 personas:\n`
+      formattedQuote += `▷${roomDetails.name}, 2 ambientes, ${roomDetails.area_m2}m²\n`
+      formattedQuote += `${roomDetails.description} : $${this.formatPrice(ratePlan.totalPrice)}\n\n`
+    }
+
+    // Agregar los content blocks restantes
+    for (const block of templateBlocks) {
+      if (block.type !== 'GREETING') { // El greeting ya se procesó arriba
+        formattedQuote += `${block.content}\n\n`
+      }
+    }
+
+    return formattedQuote.trim()
+  }
+
+  private formatDateForDisplay(dateString: string): string {
+    const date = new Date(dateString)
+    const day = date.getDate().toString().padStart(2, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    return `${day}/${month}`
+  }
+
+  private formatPrice(price: number): string {
+    return new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(price)
   }
 }

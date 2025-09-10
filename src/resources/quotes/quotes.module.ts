@@ -6,8 +6,11 @@ import { CommonModule } from '../../common/common.module'
 import { AuthModule } from '../../engine/auth/auth.module'
 import { QuotesController } from './controllers/quotes.controller'
 import { QuoteEngineService } from './services/quote-engine.service'  // ← Nuevo servicio limpio
+import { QuotesService } from './services/quotes.service'  // ← Servicio con generación de templates
 import { DailyRoomRatesModule } from '../daily-room-rates/daily-room-rates.module'  // ← Módulo OTA
 import { RoomTypeModule } from '../room-type/room-type.module'  // ← Para tenant-aware room types
+import { QuoteTemplateModule } from '../quote-template/quote-template.module'  // ← Para templates
+import { ContentBlockModule } from '../content-block/content-block.module'  // ← Para content blocks
 
 @Module({
   imports: [
@@ -16,10 +19,12 @@ import { RoomTypeModule } from '../room-type/room-type.module'  // ← Para tena
     CommonModule, 
     AuthModule,
     DailyRoomRatesModule,  // ← Acceso a daily rates tenant-aware
-    RoomTypeModule  // ← Acceso tenant-aware a room types
+    RoomTypeModule,  // ← Acceso tenant-aware a room types
+    QuoteTemplateModule,  // ← Para templates
+    ContentBlockModule  // ← Para content blocks
   ],
-  providers: [QuoteEngineService],
+  providers: [QuoteEngineService, QuotesService],
   controllers: [QuotesController],
-  exports: [QuoteEngineService],
+  exports: [QuoteEngineService, QuotesService],
 })
 export class QuotesModule {}

@@ -13,6 +13,7 @@ import {
 
 import { QuoteEngineService } from '../services/quote-engine.service'
 import { QuoteBudgetDto, QuoteResponseDto } from '../dto'
+import { QuotesService } from '../services/quotes.service'
 
 /**
  * QuotesController - Controller para cálculo de cotizaciones
@@ -29,7 +30,10 @@ import { QuoteBudgetDto, QuoteResponseDto } from '../dto'
 @Controller('/quotes')
 @ApiTags('Quotes')
 export class QuotesController {
-  constructor(private readonly quoteEngineService: QuoteEngineService) {}
+  constructor(
+    private readonly quoteEngineService: QuoteEngineService,
+    private readonly quotesService: QuotesService
+  ) {}
 
   /**
    * Endpoint público para cálculo de cotizaciones
@@ -59,5 +63,26 @@ export class QuotesController {
   })
   async calculateQuote(@Body() quoteBudgetDto: QuoteBudgetDto): Promise<QuoteResponseDto> {
     return this.quoteEngineService.calculateQuote(quoteBudgetDto)
+  }
+
+  /**
+   * Endpoint público para generar presupuesto formateado
+   * Genera el texto completo del presupuesto usando la template por defecto
+   */
+  @Post('/generate-formatted')
+  @ApiBody({ type: QuoteBudgetDto, required: true })
+  @ApiCreatedResponse({ 
+    description: 'Presupuesto formateado generado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        formattedQuote: { type: 'string', description: 'Presupuesto completo en formato texto' }
+      }
+    }
+  })
+  @ApiBadRequestResponse({ description: 'Parámetros inválidos o template no encontrada' })
+  async generateFormattedQuote(@Body() quoteBudgetDto: QuoteBudgetDto): Promise<{ formattedQuote: string }> {
+    const formattedQuote = await this.quotesService.generateFormattedQuote(quoteBudgetDto)
+    return { formattedQuote }
   }
 }

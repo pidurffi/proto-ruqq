@@ -205,7 +205,7 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
    */
   private async getDefaultRatePlanId(): Promise<string> {
     if (this.defaultRatePlanId) {
-      return this.defaultRatePlanId
+      return this.defaultRatePlanId!
     }
 
     const barRatePlan = await this.dataSource.query(
@@ -218,7 +218,7 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
     }
 
     this.defaultRatePlanId = barRatePlan[0].id
-    return this.defaultRatePlanId
+    return this.defaultRatePlanId!
   }
 
   /**
