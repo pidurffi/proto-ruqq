@@ -32,6 +32,7 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
   /**
    * Obtener tarifas para un rango de fechas (query principal para cotizaciones)
    * Equivale al XML de Booking.com: <roomrate date="..." price="..." />
+   * INCLUYE RATE PLANS: Devuelve todas las tarifas con sus rate plans asociados
    */
   async findRatesForPeriod(
     roomTypeId: string,
@@ -40,13 +41,16 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
     onlyActive: boolean = true
   ): Promise<DailyRoomRate[]> {
     const query = this.createQueryBuilder('rate')
+      .leftJoinAndSelect('rate.ratePlan', 'ratePlan')
       .where('rate.room_type_id = :roomTypeId', { roomTypeId })
       .andWhere('rate.date >= :startDate', { startDate })
       .andWhere('rate.date <= :endDate', { endDate })
       .orderBy('rate.date', 'ASC')
+      .addOrderBy('ratePlan.display_order', 'ASC')
 
     if (onlyActive) {
       query.andWhere('rate.is_active = true')
+      query.andWhere('ratePlan.is_active = true')
     }
 
     return query.getMany()
@@ -225,6 +229,27 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
   }
 
   /**
+   * Obtener tarifas agrupadas por rate plan para matriz de precios
+   * NUEVO: Para soportar visualización por rate plans
+   */
+  async findRatesGroupedByRatePlan(
+    roomTypeId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<DailyRoomRate[]> {
+    return this.createQueryBuilder('rate')
+      .leftJoinAndSelect('rate.ratePlan', 'ratePlan')
+      .where('rate.room_type_id = :roomTypeId', { roomTypeId })
+      .andWhere('rate.date >= :startDate', { startDate })
+      .andWhere('rate.date <= :endDate', { endDate })
+      .andWhere('rate.is_active = true')
+      .andWhere('ratePlan.is_active = true')
+      .orderBy('ratePlan.display_order', 'ASC')
+      .addOrderBy('rate.date', 'ASC')
+      .getMany()
+  }
+
+  /**
    * Obtener todos los room types disponibles
    * Para generar matriz de precios
    */
@@ -234,6 +259,20 @@ export class DailyRoomRatesRepository extends Repository<DailyRoomRate> {
       FROM room_type rt
       WHERE rt.deleted_at IS NULL
       ORDER BY rt.name
+    `)
+  }
+
+  /**
+   * Obtener todos los rate plans activos
+   * Para generar matriz de precios con rate plans
+   */
+  async findAllRatePlans(): Promise<any[]> {
+    return this.query(`
+      SELECT DISTINCT rp.id, rp.name, rp.code, rp.description, rp.is_refundable, 
+             rp.included_services, rp.display_order, rp.is_active
+      FROM rate_plans rp
+      WHERE rp.deleted_at IS NULL AND rp.is_active = true
+      ORDER BY rp.display_order ASC, rp.name ASC
     `)
   }
 }

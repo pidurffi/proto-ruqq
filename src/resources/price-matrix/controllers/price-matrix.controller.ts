@@ -99,4 +99,5 @@ export class PriceMatrixController {
   ): Promise<PriceMatrixResponseDto> {
     return await this.priceMatrixService.generatePriceMatrix(dto)
   }
+
 }

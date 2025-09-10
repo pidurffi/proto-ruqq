@@ -46,6 +46,61 @@ export class RoomTypeInfoDto {
 }
 
 /**
+ * Información básica de un rate plan
+ */
+export class RatePlanInfoDto {
+  @ApiProperty({
+    description: 'ID único del rate plan',
+    example: 'rp-123-456'
+  })
+  id: string
+
+  @ApiProperty({
+    description: 'Nombre del rate plan',
+    example: 'Best Available Rate'
+  })
+  name: string
+
+  @ApiProperty({
+    description: 'Código del rate plan',
+    example: 'BAR'
+  })
+  code: string
+
+  @ApiProperty({
+    description: 'Descripción del rate plan',
+    example: 'Tarifa base con cancelación flexible',
+    required: false
+  })
+  description?: string
+
+  @ApiProperty({
+    description: 'Indica si es reembolsable',
+    example: true
+  })
+  isRefundable: boolean
+
+  @ApiProperty({
+    description: 'Servicios incluidos',
+    example: 'breakfast,wifi',
+    required: false
+  })
+  includedServices?: string
+
+  @ApiProperty({
+    description: 'Orden de visualización',
+    example: 0
+  })
+  displayOrder: number
+
+  @ApiProperty({
+    description: 'Rate plan activo',
+    example: true
+  })
+  isActive: boolean
+}
+
+/**
  * Precio calculado para una fecha específica
  */
 export class PriceCellDto {
@@ -56,7 +111,7 @@ export class PriceCellDto {
   date: string
 
   @ApiProperty({
-    description: 'Precio final por noche calculado por el Motor v2.3',
+    description: 'Precio final por noche calculado',
     example: 350.00
   })
   price: number
@@ -68,9 +123,16 @@ export class PriceCellDto {
   available: boolean
 
   @ApiProperty({
+    description: 'Número de habitaciones disponibles en inventory',
+    example: 5,
+    required: false
+  })
+  availableRooms?: number
+
+  @ApiProperty({
     description: 'Fuente del precio aplicado',
-    example: 'price_rule',
-    enum: ['base_rate', 'price_rule', 'promotion'],
+    example: 'daily_rate',
+    enum: ['base_rate', 'price_rule', 'promotion', 'daily_rate'],
     required: false
   })
   source?: 'base_rate' | 'price_rule' | 'promotion' | 'daily_rate'
@@ -81,10 +143,52 @@ export class PriceCellDto {
     required: false
   })
   appliedRuleId?: string
+
+  @ApiProperty({
+    description: 'Rate plan asociado a este precio',
+    type: RatePlanInfoDto,
+    required: false
+  })
+  ratePlan?: RatePlanInfoDto
 }
 
 /**
- * Fila completa de la matriz para un tipo de habitación
+ * Sub-fila para un rate plan específico dentro de un tipo de habitación
+ */
+export class PriceMatrixRatePlanRowDto {
+  @ApiProperty({
+    description: 'Información del rate plan',
+    type: RatePlanInfoDto
+  })
+  ratePlan: RatePlanInfoDto
+
+  @ApiProperty({
+    description: 'Array de precios por fecha para este rate plan',
+    type: [PriceCellDto]
+  })
+  prices: PriceCellDto[]
+
+  @ApiProperty({
+    description: 'Precio promedio para este rate plan en el período',
+    example: 325.50
+  })
+  averagePrice: number
+
+  @ApiProperty({
+    description: 'Precio mínimo encontrado para este rate plan',
+    example: 280.00
+  })
+  minPrice: number
+
+  @ApiProperty({
+    description: 'Precio máximo encontrado para este rate plan', 
+    example: 450.00
+  })
+  maxPrice: number
+}
+
+/**
+ * Fila completa de la matriz para un tipo de habitación (con sub-filas por rate plan)
  */
 export class PriceMatrixRowDto {
   @ApiProperty({
@@ -94,28 +198,35 @@ export class PriceMatrixRowDto {
   roomType: RoomTypeInfoDto
 
   @ApiProperty({
-    description: 'Array de precios por fecha (columnas de la matriz)',
-    type: [PriceCellDto]
+    description: 'Sub-filas con precios por rate plan',
+    type: [PriceMatrixRatePlanRowDto]
   })
-  prices: PriceCellDto[]
+  ratePlanRows: PriceMatrixRatePlanRowDto[]
 
   @ApiProperty({
-    description: 'Precio promedio para este tipo de habitación en el período',
+    description: 'Precio promedio para este tipo de habitación (todas las rate plans)',
     example: 325.50
   })
   averagePrice: number
 
   @ApiProperty({
-    description: 'Precio mínimo encontrado',
+    description: 'Precio mínimo encontrado (todas las rate plans)',
     example: 280.00
   })
   minPrice: number
 
   @ApiProperty({
-    description: 'Precio máximo encontrado', 
+    description: 'Precio máximo encontrado (todas las rate plans)', 
     example: 450.00
   })
   maxPrice: number
+
+  @ApiProperty({
+    description: 'Array de precios por fecha (backward compatibility - usa el primer rate plan)',
+    type: [PriceCellDto],
+    required: false
+  })
+  prices?: PriceCellDto[]
 }
 
 /**
@@ -148,10 +259,11 @@ export class PriceMatrixResponseDto {
   rows: PriceMatrixRowDto[]
 
   @ApiProperty({
-    description: 'Resumen estadístico de la matriz',
+    description: 'Resumen estadístico de la matriz con Rate Plans',
     type: 'object',
     properties: {
       totalRoomTypes: { type: 'number', example: 5 },
+      totalRatePlans: { type: 'number', example: 15 },
       totalDays: { type: 'number', example: 31 },
       averagePriceAcrossAll: { type: 'number', example: 312.75 },
       priceRange: {
@@ -165,6 +277,7 @@ export class PriceMatrixResponseDto {
   })
   summary: {
     totalRoomTypes: number
+    totalRatePlans: number
     totalDays: number
     averagePriceAcrossAll: number
     priceRange: {

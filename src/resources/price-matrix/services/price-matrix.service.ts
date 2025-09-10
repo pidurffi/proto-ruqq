@@ -6,8 +6,10 @@ import {
   PriceMatrixRequestDto, 
   PriceMatrixResponseDto, 
   PriceMatrixRowDto, 
+  PriceMatrixRatePlanRowDto,
   PriceCellDto, 
-  RoomTypeInfoDto 
+  RoomTypeInfoDto,
+  RatePlanInfoDto 
 } from '../dto'
 
 /**
@@ -72,12 +74,13 @@ export class PriceMatrixService {
     // 3. GENERAR ENCABEZADOS DE FECHAS (COLUMNAS)
     const dateHeaders = this.generateDateRange(startDateStr, endDateStr)
 
-    // 4. CALCULAR MATRIZ PARA CADA ROOM TYPE
+    // 4. CALCULAR MATRIZ PARA CADA ROOM TYPE CON RATE PLANS
     const rows: PriceMatrixRowDto[] = []
     let globalMinPrice = Number.MAX_VALUE
     let globalMaxPrice = 0
     let totalPriceSum = 0
     let totalValidPrices = 0
+    let totalRatePlans = 0
 
     for (const roomType of roomTypes) {
       const row = await this.calculateRoomTypeRow(
@@ -87,6 +90,9 @@ export class PriceMatrixService {
       
       rows.push(row)
       
+      // Contar rate plans
+      totalRatePlans += row.ratePlanRows.length
+      
       // Actualizar estadísticas globales
       if (row.minPrice > 0 && row.minPrice < globalMinPrice) {
         globalMinPrice = row.minPrice
@@ -95,16 +101,18 @@ export class PriceMatrixService {
         globalMaxPrice = row.maxPrice
       }
       
-      // Sumar precios válidos para promedio global
-      row.prices.forEach(cell => {
-        if (cell.available && cell.price > 0) {
-          totalPriceSum += cell.price
-          totalValidPrices++
-        }
+      // Sumar precios válidos para promedio global (todas las rate plans)
+      row.ratePlanRows.forEach(ratePlanRow => {
+        ratePlanRow.prices.forEach(cell => {
+          if (cell.available && cell.price > 0) {
+            totalPriceSum += cell.price
+            totalValidPrices++
+          }
+        })
       })
     }
 
-    // 5. ENSAMBLAR RESPUESTA CON ESTADÍSTICAS
+    // 5. ENSAMBLAR RESPUESTA CON ESTADÍSTICAS ACTUALIZADAS
     return {
       startDate: startDateStr,
       endDate: endDateStr,
@@ -112,6 +120,7 @@ export class PriceMatrixService {
       rows,
       summary: {
         totalRoomTypes: roomTypes.length,
+        totalRatePlans,
         totalDays: dateHeaders.length,
         averagePriceAcrossAll: totalValidPrices > 0 ? 
           Math.round((totalPriceSum / totalValidPrices) * 100) / 100 : 0,
@@ -124,14 +133,16 @@ export class PriceMatrixService {
   }
 
   /**
-   * Calcula fila de matriz - SIMPLIFICADO
+   * Calcula fila de matriz con Rate Plans - NUEVA ESTRUCTURA
    * 
-   * ANTES: Motor v2.3 complejo aplicado fecha por fecha
-   * AHORA: Query bulk para todas las fechas del room type
+   * CAMBIO CRÍTICO: Ahora agrupa por Rate Plans dentro de cada Room Type
+   * - Cada Room Type tiene múltiples Rate Plans
+   * - Cada Rate Plan tiene precios por fecha
+   * - UI mostrará sub-filas expandibles
    * 
    * @param roomType Tipo de habitación a procesar
    * @param dateHeaders Array de fechas a calcular
-   * @returns Fila completa con precios y estadísticas
+   * @returns Fila completa con sub-filas por rate plan
    */
   private async calculateRoomTypeRow(
     roomType: any,
@@ -145,56 +156,115 @@ export class PriceMatrixService {
       maxCapacity: roomType.maxCapacity
     }
 
-    // NUEVA LÓGICA SIMPLE: Query bulk para todas las fechas
+    // NUEVA LÓGICA: Query con Rate Plans incluidos
     const startDate = dateHeaders[0]
     const endDate = dateHeaders[dateHeaders.length - 1]
-    const dailyRates = await this.dailyRatesRepository.findRatesForPeriod(
+    const dailyRates = await this.dailyRatesRepository.findRatesGroupedByRatePlan(
       roomType.id,
       startDate,
       endDate
     )
 
-    const prices: PriceCellDto[] = []
-    let validPrices: number[] = []
+    // Agrupar por Rate Plan
+    const ratePlanGroups = new Map<string, any[]>()
+    const ratePlansInfo = new Map<string, any>()
 
-    // Mapear fechas a precios
-    for (const date of dateHeaders) {
-      const rate = dailyRates.find(r => {
-        const rateDate = r.date instanceof Date ? r.date : new Date(r.date)
-        return rateDate.toISOString().split('T')[0] === date
-      })
+    for (const rate of dailyRates) {
+      const ratePlanId = rate.ratePlanId
       
-      if (rate && rate.availableRooms > 0) {
-        const price = Number(rate.baseRate)
-        prices.push({
-          date,
-          price,
-          available: true,
-          source: 'daily_rate',
-          appliedRuleId: rate.id
-        })
-        validPrices.push(price)
-      } else {
-        prices.push({
-          date,
-          price: 0,
-          available: false
-        })
+      if (!ratePlanGroups.has(ratePlanId)) {
+        ratePlanGroups.set(ratePlanId, [])
+        ratePlansInfo.set(ratePlanId, rate.ratePlan)
       }
+      
+      ratePlanGroups.get(ratePlanId)!.push(rate)
     }
 
-    // Calcular estadísticas de la fila
-    const averagePrice = validPrices.length > 0 ? 
-      Math.round((validPrices.reduce((sum, p) => sum + p, 0) / validPrices.length) * 100) / 100 : 0
-    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0
-    const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0
+    // Construir sub-filas por Rate Plan
+    const ratePlanRows: PriceMatrixRatePlanRowDto[] = []
+    let allValidPrices: number[] = []
+
+    for (const [ratePlanId, rates] of ratePlanGroups.entries()) {
+      const ratePlanInfo = ratePlansInfo.get(ratePlanId)
+      const prices: PriceCellDto[] = []
+      let validPrices: number[] = []
+
+      // Mapear fechas a precios para este rate plan
+      for (const date of dateHeaders) {
+        const rate = rates.find(r => {
+          const rateDate = r.date instanceof Date ? r.date : new Date(r.date)
+          return rateDate.toISOString().split('T')[0] === date
+        })
+        
+        if (rate && rate.isActive) {
+          const price = Number(rate.baseRate)
+          prices.push({
+            date,
+            price,
+            available: true,  // Para vendedor: siempre true si el rate está activo
+            availableRooms: rate.availableRooms,  // Inventory disponible
+            source: 'daily_rate',
+            appliedRuleId: rate.id,
+            ratePlan: {
+              id: ratePlanInfo.id,
+              name: ratePlanInfo.name,
+              code: ratePlanInfo.code,
+              description: ratePlanInfo.description,
+              isRefundable: ratePlanInfo.isRefundable,
+              includedServices: ratePlanInfo.includedServices,
+              displayOrder: ratePlanInfo.displayOrder,
+              isActive: ratePlanInfo.isActive
+            } as RatePlanInfoDto
+          })
+          validPrices.push(price)
+          allValidPrices.push(price)
+        } else {
+          prices.push({
+            date,
+            price: 0,
+            available: false  // Solo false si no hay rate configurado
+          })
+        }
+      }
+
+      // Calcular estadísticas del rate plan
+      const averagePrice = validPrices.length > 0 ? 
+        Math.round((validPrices.reduce((sum, p) => sum + p, 0) / validPrices.length) * 100) / 100 : 0
+      const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0
+      const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0
+
+      ratePlanRows.push({
+        ratePlan: {
+          id: ratePlanInfo.id,
+          name: ratePlanInfo.name,
+          code: ratePlanInfo.code,
+          description: ratePlanInfo.description,
+          isRefundable: ratePlanInfo.isRefundable,
+          includedServices: ratePlanInfo.includedServices,
+          displayOrder: ratePlanInfo.displayOrder,
+          isActive: ratePlanInfo.isActive
+        } as RatePlanInfoDto,
+        prices,
+        averagePrice,
+        minPrice,
+        maxPrice
+      })
+    }
+
+    // Calcular estadísticas generales del Room Type (todas las rate plans combinadas)
+    const overallAveragePrice = allValidPrices.length > 0 ? 
+      Math.round((allValidPrices.reduce((sum, p) => sum + p, 0) / allValidPrices.length) * 100) / 100 : 0
+    const overallMinPrice = allValidPrices.length > 0 ? Math.min(...allValidPrices) : 0
+    const overallMaxPrice = allValidPrices.length > 0 ? Math.max(...allValidPrices) : 0
 
     return {
       roomType: roomTypeInfo,
-      prices,
-      averagePrice,
-      minPrice,
-      maxPrice
+      ratePlanRows,
+      averagePrice: overallAveragePrice,
+      minPrice: overallMinPrice,
+      maxPrice: overallMaxPrice,
+      // Legacy support (backward compatibility)
+      prices: ratePlanRows.length > 0 ? ratePlanRows[0].prices : []
     }
   }
 
@@ -257,16 +327,4 @@ export class PriceMatrixService {
     return dates
   }
 
-  /**
-   * Suma días a una fecha string manteniendo formato YYYY-MM-DD
-   * 
-   * @param dateString Fecha en formato YYYY-MM-DD
-   * @param days Número de días a sumar
-   * @returns Nueva fecha en formato YYYY-MM-DD
-   */
-  private addDays(dateString: string, days: number): string {
-    const date = new Date(dateString)
-    date.setDate(date.getDate() + days)
-    return date.toISOString().split('T')[0]
-  }
 }

@@ -2,6 +2,8 @@ export { PriceMatrixRequestDto } from './price-matrix-request.dto'
 export { 
   PriceMatrixResponseDto, 
   PriceMatrixRowDto, 
+  PriceMatrixRatePlanRowDto,
   PriceCellDto, 
-  RoomTypeInfoDto 
+  RoomTypeInfoDto,
+  RatePlanInfoDto 
 } from './price-matrix-response.dto'
