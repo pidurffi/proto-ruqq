@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsBoolean, IsEnum, Min, Max, ValidateIf } from 'class-validator'
+import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsBoolean, IsEnum, Min, Max, ValidateIf, IsArray, IsInt } from 'class-validator'
 import { Type } from 'class-transformer'
 
 import { PricingSource } from '../constants'
@@ -130,4 +130,22 @@ export class DailyRateBulkDto {
   @IsOptional()
   @IsEnum(PricingSource)
   pricingSource?: PricingSource = PricingSource.BULK_IMPORT
+
+  @ApiProperty({
+    description: 'Filtro de días de semana para aplicar cambios (JavaScript standard: 0=Domingo, 1=Lunes, ..., 6=Sábado)',
+    example: [5, 6],
+    required: false,
+    type: [Number],
+    items: {
+      type: 'number',
+      minimum: 0,
+      maximum: 6
+    }
+  })
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  dayOfWeekFilter?: number[]
 }

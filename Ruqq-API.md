@@ -695,6 +695,47 @@ Content-Type: application/json
 }
 ```
 
+#### **Endpoint de Cotización Formateada - NUEVO**
+```http
+POST /api/quotes/generate-formatted
+Content-Type: application/json
+
+{
+  "pax": 4,
+  "checkInDate": "2025-03-01",
+  "checkOutDate": "2025-03-05"
+}
+```
+
+**Respuesta Formateada para WhatsApp:**
+```json
+{
+  "formattedQuote": "Del 01/03 al 05/03, 4 noches, para 4/4 personas:\n▷Luxury, 2 ambientes, 45m²\nLujo y sofisticación en cada detalle con amenidades premium : $2.000,00\n\n▷Premium, 2 ambientes, 35m²\nComfort superior con todas las comodidades modernas : $1.600,00\n\n▷Superior, 2 ambientes, 30m²\nEspacio amplio y elegante diseño contemporáneo : $1.200,00\n\nESTOS PRECIOS INCLUYEN:\n\n✅ Desayuno buffet completo\n✅ WiFi de alta velocidad\n✅ Estacionamiento gratuito\n✅ Acceso completo al spa y gimnasio\n✅ Servicio de limpieza diario\n✅ Amenities premium\n✅ Conserje 24/7\n\nCONDICIONES:\n\n⚠️ Precios válidos por 7 días\n⚠️ Sujeto a disponibilidad al momento de la reserva\n⚠️ No incluye city tax (€2 por persona por noche)\n\nCONTACTO:\n\n📱 WhatsApp: +54 11 1234-5678\n✉️ Email: reservas@hotel.com\n🌐 Web: www.hotel.com"
+}
+```
+
+### **📋 Sistema de Plantillas de Cotización**
+
+#### **Templates Personalizables**
+El sistema incluye un potente generador de cotizaciones formateadas que utiliza templates personalizables con bloques de contenido reutilizables.
+
+**Características del Sistema:**
+- **Templates por defecto**: Con bloques pre-configurados para diferentes secciones
+- **Content Blocks**: Bloques reutilizables de contenido (servicios, condiciones, contacto)
+- **Formato WhatsApp**: Salida optimizada para mensajería móvil
+- **Multi-idioma**: Soporte para templates en diferentes idiomas
+- **Personalización**: Templates específicos por hotel/tenant
+
+**Estructura de Template:**
+```typescript
+// Bloques típicos de una cotización:
+- GREETING: Encabezado con fechas y huéspedes
+- ROOM_DETAILS: Detalles de habitaciones disponibles con precios
+- INCLUDED_SERVICES: Servicios incluidos en el precio
+- TERMS_CONDITIONS: Condiciones generales de la reserva
+- CONTACT_INFO: Información de contacto del hotel
+```
+
 ### **🎯 Sistema de Gestión de Tenants**
 
 #### **Información de Tenant Activo**
@@ -885,6 +926,17 @@ src/
 - **Algoritmo**: Query directo a `daily_room_rates`
 - **Performance**: ~50 líneas vs 500+ del modelo anterior
 - **Tenant-aware**: Totalmente integrado
+- **Rate Plans**: Soporte completo para múltiples planes tarifarios (BAR, NR, APD, etc.)
+
+#### **QuotesService - Generación de Cotizaciones Formateadas**
+- **Responsabilidad**: Generación de presupuestos con templates personalizables
+- **Funciones**: 
+  - Integración con `QuoteEngineService` para cálculos de precios
+  - Aplicación de templates con bloques de contenido
+  - Formateo automático para WhatsApp y otros canales
+  - Manejo de descripciones de habitaciones y servicios incluidos
+- **Templates**: Sistema de plantillas con bloques reutilizables
+- **Multi-canal**: Formato optimizado para WhatsApp, email, web
 
 #### **DailyRatesService - Gestión de Tarifas**
 - **Responsabilidad**: CRUD y bulk operations en `daily_room_rates`
@@ -895,6 +947,7 @@ src/
   - **Métodos Helper**: `isValidUuid()` y `validateAndNormalizeUid()` eliminan duplicación de código
   - **Performance**: Reducción de ~90% en queries para operaciones bulk (30 días: 30 queries → 1 query)
   - **Imports Limpieza**: Eliminados imports TypeORM no utilizados (`Between`, `LessThanOrEqual`, `MoreThanOrEqual`)
+  - **TypeScript Fixes**: Resolución de errores de compilación con non-null assertions
 
 #### **TenantService - Gestión Multi-Tenant**
 - **Responsabilidad**: Validación y contexto de tenants
@@ -994,6 +1047,9 @@ CORS_WHITE_LIST=http://localhost:4200
 - ✅ Cotizaciones con capacidad, precios y disponibilidad
 - ✅ Sistema multi-tenant transparente para cliente
 - ✅ Autenticación JWT operativa
+- ✅ Generación de cotizaciones formateadas operativa
+- ✅ Templates personalizables con bloques de contenido
+- ✅ Formato WhatsApp optimizado para mensajería
 
 ### **🎯 Beneficios Técnicos Alcanzados**
 
@@ -1037,10 +1093,12 @@ CORS_WHITE_LIST=http://localhost:4200
 ## 💡 Próximos Pasos y Roadmap
 
 ### **Optimizaciones Inmediatas Sugeridas**
-1. **Resolver tenant-aware en DailyRoomRatesRepository** (bypass temporal implementado)
-2. **Cache Redis** para consultas frecuentes de tarifas
+1. **Completar room descriptions**: Agregar descripciones faltantes para "Estudio Loft" y "Suite" (actualmente null)
+2. **Cache Redis** para consultas frecuentes de tarifas y templates
 3. **Métricas de performance** del algoritmo de cotización
-4. **Dashboard administrativo** para gestión visual de tarifas
+4. **Dashboard administrativo** para gestión visual de tarifas y templates
+5. **Editor de templates**: Interfaz visual para personalizar templates de cotización
+6. **Multi-idioma**: Soporte para templates en inglés, español, portugués
 
 ### **Funcionalidades Futuras**
 - 🔍 **Búsqueda avanzada** con filtros complejos
@@ -1049,6 +1107,10 @@ CORS_WHITE_LIST=http://localhost:4200
 - 🤖 **Machine Learning** para predicción de demanda
 - 📱 **Notificaciones** de cambios de precio
 - 🔒 **Audit log** completo de modificaciones
+- 📋 **Template Builder** visual para crear y personalizar cotizaciones
+- 📧 **Multi-canal**: Templates para email, SMS, web además de WhatsApp
+- 🎨 **Branding**: Personalización visual por hotel/tenant
+- 📄 **PDF Generator**: Generación de presupuestos en formato PDF profesional
 
 ---
 

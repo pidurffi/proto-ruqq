@@ -74,6 +74,7 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
       closedToDeparture?: boolean
       pricingSource?: PricingSource
       ratePlanId?: string
+      dayOfWeekFilter?: number[]  // [0-6] JavaScript standard: 0=Domingo, 1=Lunes, ..., 6=Sábado
     } = {}
   ): Promise<void> {
     // Validación básica
@@ -84,8 +85,18 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
     // Obtener rate plan (usar caché o proporcionado)
     const ratePlanId = options.ratePlanId || await this.getDefaultRatePlanId()
 
+    // Validar dayOfWeekFilter si se proporciona
+    if (options.dayOfWeekFilter) {
+      this.validateDayOfWeekFilter(options.dayOfWeekFilter)
+    }
+
     // Generar fechas del rango
-    const dates = this.generateDateRange(startDate, endDate)
+    const allDates = this.generateDateRange(startDate, endDate)
+    
+    // Aplicar filtro de días de semana si se especifica
+    const dates = options.dayOfWeekFilter 
+      ? this.filterDatesByWeekDay(allDates, options.dayOfWeekFilter, startDate, endDate)
+      : allDates
     
     // Validar y normalizar UUID
     const validUid = this.validateAndNormalizeUid(uid)
@@ -314,5 +325,79 @@ export class DailyRatesService extends BaseEntityService<DailyRoomRate> {
       impactedNights: 0,
       estimatedChanges: []
     }
+  }
+
+  //========================================
+  // MÉTODOS HELPER PARA FILTRO DE DÍAS DE SEMANA
+  //========================================
+
+  /**
+   * Validar que dayOfWeekFilter contenga solo números válidos (0-6)
+   */
+  private validateDayOfWeekFilter(dayOfWeekFilter: number[]): void {
+    if (!Array.isArray(dayOfWeekFilter) || dayOfWeekFilter.length === 0) {
+      throw new BadRequestException('dayOfWeekFilter debe ser un array no vacío')
+    }
+
+    const invalidDays = dayOfWeekFilter.filter(day => !Number.isInteger(day) || day < 0 || day > 6)
+    if (invalidDays.length > 0) {
+      throw new BadRequestException(
+        `dayOfWeekFilter contiene días inválidos: [${invalidDays.join(', ')}]. Valores permitidos: 0-6 (0=Domingo, 1=Lunes, ..., 6=Sábado)`
+      )
+    }
+  }
+
+  /**
+   * Filtrar fechas por días de semana especificados
+   */
+  private filterDatesByWeekDay(
+    allDates: Date[], 
+    dayOfWeekFilter: number[], 
+    startDate: string, 
+    endDate: string
+  ): Date[] {
+    const filteredDates = allDates.filter(date => {
+      const dayOfWeek = date.getDay() // JavaScript standard: 0=Domingo, 1=Lunes, etc.
+      return dayOfWeekFilter.includes(dayOfWeek)
+    })
+
+    // Si no hay fechas que coincidan, generar error descriptivo
+    if (filteredDates.length === 0) {
+      const availableDayNames = [...new Set(allDates.map(date => this.getDayName(date.getDay())))]
+      const requestedDayNames = dayOfWeekFilter.map(day => this.getDayName(day))
+      
+      throw new BadRequestException(
+        `En el período ${this.formatDateForError(startDate)}-${this.formatDateForError(endDate)} no hay '${requestedDayNames.join("' ni '")}''. Días disponibles: '${availableDayNames.join("', '")}'`
+      )
+    }
+
+    return filteredDates
+  }
+
+  /**
+   * Convertir número de día (0-6) a nombre en español
+   */
+  private getDayName(dayNumber: number): string {
+    const dayNames = [
+      'domingo',    // 0
+      'lunes',      // 1  
+      'martes',     // 2
+      'miércoles',  // 3
+      'jueves',     // 4
+      'viernes',    // 5
+      'sábado'      // 6
+    ]
+    return dayNames[dayNumber] || 'desconocido'
+  }
+
+  /**
+   * Formatear fecha para mensajes de error (DD/MM/YYYY)
+   */
+  private formatDateForError(dateString: string): string {
+    const date = new Date(dateString)
+    const day = date.getDate().toString().padStart(2, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
   }
 }

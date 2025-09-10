@@ -103,7 +103,8 @@ export class DailyRoomRatesController {
         maxStay: bulkDto.maxStay,
         closedToArrival: bulkDto.closedToArrival,
         closedToDeparture: bulkDto.closedToDeparture,
-        pricingSource: bulkDto.pricingSource
+        pricingSource: bulkDto.pricingSource,
+        dayOfWeekFilter: bulkDto.dayOfWeekFilter
       }
     )
 
