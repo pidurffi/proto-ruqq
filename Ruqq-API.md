@@ -1,10 +1,11 @@
-# 🏨 Ruqq - Sistema Integral de Gestión Hotelera con Motor OTA Estándar v3.0
+# 🏨 Ruqq - Sistema Integral de Gestión Hotelera con Motor OTA Estándar v1.308
 
 ## 🎯 Resumen Ejecutivo
 
 **Ruqq** es un sistema integral de gestión hotelera construido sobre **NestJS**, **PostgreSQL** y **TypeORM** que implementa el **Motor OTA Estándar v3.0** con modelo de calendario diario compatible 100% con APIs de Booking.com, Airbnb y principales OTAs.
 
 ### 🏗️ Arquitectura General
+
 - **Framework**: NestJS 11.x con TypeScript en modo estricto
 - **Base de Datos**: PostgreSQL con estrategia de nomenclatura snake_case
 - **ORM**: TypeORM 0.3.25 con repositorios tenant-aware personalizados
@@ -23,6 +24,7 @@ El sistema ha sido **completamente refactorizado** desde el modelo híbrido comp
 ### **🔄 Transformación Arquitectónica**
 
 #### **❌ Modelo Anterior (ELIMINADO)**
+
 ```
 base_rate_period + price_rules + occupancy_rate_modifiers
 → Lógica compleja de split/consolidation (290+ líneas)
@@ -31,6 +33,7 @@ base_rate_period + price_rules + occupancy_rate_modifiers
 ```
 
 #### **✅ Modelo Actual (OTA ESTÁNDAR)**
+
 ```
 daily_room_rates (un registro por día)
 → room_type_id + date + price + availability + restrictions
@@ -53,113 +56,113 @@ export class DailyRoomRate extends EntityBase {
   @Column({ type: 'uuid', name: 'room_type_id', nullable: false })
   roomTypeId: string
 
-  @Column({ 
-    type: 'date', 
+  @Column({
+    type: 'date',
     nullable: false,
-    comment: 'UN REGISTRO POR CADA DÍA - Estándar OTA como Booking.com, Airbnb'
+    comment: 'UN REGISTRO POR CADA DÍA - Estándar OTA como Booking.com, Airbnb',
   })
   date: Date
 
   // PRECIOS POR OCUPACIÓN - INTEGRADO
-  @Column({ 
+  @Column({
     type: 'decimal',
     precision: 10,
     scale: 2,
     nullable: false,
     name: 'base_rate',
-    comment: 'Precio base para la capacidad estándar de la habitación'
+    comment: 'Precio base para la capacidad estándar de la habitación',
   })
   baseRate: number
 
-  @Column({ 
+  @Column({
     type: 'decimal',
     precision: 10,
     scale: 2,
     nullable: true,
     name: 'single_occupancy_rate',
-    comment: 'Precio especial para 1 persona (opcional)'
+    comment: 'Precio especial para 1 persona (opcional)',
   })
   singleOccupancyRate?: number
 
-  @Column({ 
+  @Column({
     type: 'decimal',
     precision: 10,
     scale: 2,
     nullable: true,
     name: 'extra_person_rate',
-    comment: 'Precio adicional por persona extra'
+    comment: 'Precio adicional por persona extra',
   })
   extraPersonRate?: number
 
   // INVENTORY Y DISPONIBILIDAD
-  @Column({ 
+  @Column({
     type: 'int',
     default: 0,
     nullable: false,
     name: 'available_rooms',
-    comment: 'Habitaciones disponibles para reservar en este día específico'
+    comment: 'Habitaciones disponibles para reservar en este día específico',
   })
   availableRooms: number
 
-  @Column({ 
+  @Column({
     type: 'boolean',
     default: true,
     nullable: false,
     name: 'is_active',
-    comment: 'Día vendible (true) o cerrado (false)'
+    comment: 'Día vendible (true) o cerrado (false)',
   })
   isActive: boolean
 
   // RESTRICCIONES INTEGRADAS - EX-TABLA RESTRICTIONS
-  @Column({ 
+  @Column({
     type: 'int',
     nullable: true,
     name: 'min_stay',
-    comment: 'Estancia mínima requerida para check-ins en este día'
+    comment: 'Estancia mínima requerida para check-ins en este día',
   })
   minStay?: number
 
-  @Column({ 
+  @Column({
     type: 'int',
     nullable: true,
     name: 'max_stay',
-    comment: 'Estancia máxima permitida para check-ins en este día'
+    comment: 'Estancia máxima permitida para check-ins en este día',
   })
   maxStay?: number
 
-  @Column({ 
+  @Column({
     type: 'boolean',
     default: false,
     nullable: false,
     name: 'closed_to_arrival',
-    comment: 'No se permiten check-ins en este día (CTA)'
+    comment: 'No se permiten check-ins en este día (CTA)',
   })
   closedToArrival: boolean
 
-  @Column({ 
+  @Column({
     type: 'boolean',
     default: false,
     nullable: false,
     name: 'closed_to_departure',
-    comment: 'No se permiten check-outs en este día (CTD)'
+    comment: 'No se permiten check-outs en este día (CTD)',
   })
   closedToDeparture: boolean
 
   // METADATOS DE PRICING
-  @Column({ 
+  @Column({
     type: 'uuid',
     nullable: true,
     name: 'last_updated_by',
-    comment: 'Usuario que realizó la última actualización de precio'
+    comment: 'Usuario que realizó la última actualización de precio',
   })
   lastUpdatedBy?: string
 
-  @Column({ 
+  @Column({
     type: 'varchar',
     length: 50,
     nullable: true,
     name: 'pricing_source',
-    comment: 'Origen del precio: manual, channel_manager, dynamic_pricing, api_update'
+    comment: 'Origen del precio: manual, channel_manager, dynamic_pricing, api_update',
   })
   pricingSource?: string
 
@@ -170,43 +173,45 @@ export class DailyRoomRate extends EntityBase {
 ```
 
 ### **Entidad Base: `EntityBase`**
+
 ```typescript
 abstract class EntityBase {
   @PrimaryGeneratedColumn('uuid')
-  id: string                    // UUID como clave primaria
+  id: string // UUID como clave primaria
 
   @Column({ type: 'uuid' })
-  uid: string                   // Usuario que creó/modificó
+  uid: string // Usuario que creó/modificó
 
   @DeleteDateColumn()
-  deletedAt?: Date             // Soft delete
+  deletedAt?: Date // Soft delete
 
   @CreateDateColumn()
   createdAt: Date
 
-  @UpdateDateColumn()  
+  @UpdateDateColumn()
   updatedAt: Date
 }
 ```
 
 ### **Entidad: `RoomType` (Tipos de Habitación)**
+
 ```typescript
 @Entity({ name: 'room_type' })
 export class RoomType extends EntityBase {
   @Column({ length: 255 })
-  name: string                  // "Suite Deluxe", "Habitación Doble"
+  name: string // "Suite Deluxe", "Habitación Doble"
 
   @Column({ length: 50, unique: true })
-  code: string                  // "STE_DLX", "HAB_DBL" 
+  code: string // "STE_DLX", "HAB_DBL"
 
   @Column({ type: 'int' })
-  totalInventory: number        // Habitaciones físicas disponibles
+  totalInventory: number // Habitaciones físicas disponibles
 
   @Column({ type: 'int' })
-  baseCapacity: number          // Capacidad base (ej: 2 personas)
+  baseCapacity: number // Capacidad base (ej: 2 personas)
 
   @Column({ type: 'int' })
-  maxCapacity: number           // Capacidad máxima (ej: 4 personas)
+  maxCapacity: number // Capacidad máxima (ej: 4 personas)
 
   // Relaciones
   @OneToMany(() => DailyRoomRate, rate => rate.roomType)
@@ -247,7 +252,7 @@ export class QuoteEngineService {
     // Evaluar cada room type con query directo
     for (const roomType of roomTypes) {
       const evaluation = await this.evaluateRoomType(roomType, checkInDate.toString(), checkOutDate.toString(), pax)
-      
+
       if (evaluation.available && evaluation.quote) {
         available.push(evaluation.quote)
       } else if (evaluation.rejection) {
@@ -268,22 +273,31 @@ export class QuoteEngineService {
       return {
         available: false,
         rejection: {
-          roomType: { id: roomType.id, name: roomType.name, code: roomType.code, baseCapacity: roomType.baseCapacity, maxCapacity: roomType.maxCapacity },
+          roomType: {
+            id: roomType.id,
+            name: roomType.name,
+            code: roomType.code,
+            baseCapacity: roomType.baseCapacity,
+            maxCapacity: roomType.maxCapacity,
+          },
           reasonCode: RejectionReasonCode.CAPACITY_EXCEEDED,
-          reasonMessage: `Capacidad excedida: ${pax} huéspedes > ${roomType.maxCapacity} máximo`
-        }
+          reasonMessage: `Capacidad excedida: ${pax} huéspedes > ${roomType.maxCapacity} máximo`,
+        },
       }
     }
 
     // Query directo a daily_room_rates (Bypass tenant-aware)
-    const dailyRates = await this.dailyRatesRepository.query(`
+    const dailyRates = await this.dailyRatesRepository.query(
+      `
       SELECT 
         id, room_type_id as "roomTypeId", date, base_rate as "baseRate",
         is_active as "isActive", available_rooms as "availableRooms"
       FROM daily_room_rates 
       WHERE room_type_id = $1 AND date >= $2 AND date <= $3 AND is_active = true
       ORDER BY date ASC
-    `, [roomType.id, checkIn, this.subtractDays(checkOut, 1)])
+    `,
+      [roomType.id, checkIn, this.subtractDays(checkOut, 1)],
+    )
 
     // Verificar disponibilidad completa
     const nightsNeeded = this.calculateNights(checkIn, checkOut)
@@ -291,10 +305,16 @@ export class QuoteEngineService {
       return {
         available: false,
         rejection: {
-          roomType: { id: roomType.id, name: roomType.name, code: roomType.code, baseCapacity: roomType.baseCapacity, maxCapacity: roomType.maxCapacity },
+          roomType: {
+            id: roomType.id,
+            name: roomType.name,
+            code: roomType.code,
+            baseCapacity: roomType.baseCapacity,
+            maxCapacity: roomType.maxCapacity,
+          },
           reasonCode: RejectionReasonCode.NO_RATES_CONFIGURED,
-          reasonMessage: `Faltan tarifas: ${dailyRates.length}/${nightsNeeded} noches disponibles`
-        }
+          reasonMessage: `Faltan tarifas: ${dailyRates.length}/${nightsNeeded} noches disponibles`,
+        },
       }
     }
 
@@ -311,7 +331,7 @@ export class QuoteEngineService {
         endDate: dateStr,
         pricePerNight: nightPrice,
         nights: 1,
-        subtotal: nightPrice
+        subtotal: nightPrice,
       })
 
       totalPrice += nightPrice
@@ -321,11 +341,17 @@ export class QuoteEngineService {
     return {
       available: true,
       quote: {
-        roomType: { id: roomType.id, name: roomType.name, code: roomType.code, baseCapacity: roomType.baseCapacity, maxCapacity: roomType.maxCapacity },
+        roomType: {
+          id: roomType.id,
+          name: roomType.name,
+          code: roomType.code,
+          baseCapacity: roomType.baseCapacity,
+          maxCapacity: roomType.maxCapacity,
+        },
         totalNights: nightsNeeded,
         segments,
-        totalPrice: Math.round(totalPrice * 100) / 100
-      }
+        totalPrice: Math.round(totalPrice * 100) / 100,
+      },
     }
   }
 }
@@ -334,6 +360,7 @@ export class QuoteEngineService {
 ### **Ventajas del Nuevo Motor v3.0**
 
 #### **🚀 Performance**
+
 - **Query único por room type**: `SELECT * FROM daily_room_rates WHERE date BETWEEN ? AND ?`
 - **Sin lógica de split**: Eliminadas 290+ líneas de código complejo
 - **Sin consolidation**: No hay fragmentación que limpiar
@@ -342,12 +369,14 @@ export class QuoteEngineService {
 - **Métodos optimizados**: Validación UUID unificada sin duplicación de código
 
 #### **✅ Compatibilidad OTA**
+
 - **Estándar Booking.com**: Mismo diseño `<roomrate date="..." price="..." />`
 - **APIs directas**: Sin middleware ni transformaciones
 - **Channel Manager**: Integración nativa
 - **Airbnb ready**: Compatible con "nightly prices for each check-in date"
 
 #### **🔧 Simplicidad de Desarrollo**
+
 - **Codebase reducido**: De 500+ líneas a ~100 líneas
 - **Lógica directa**: Sin casos edge ni consolidaciones
 - **Testing simple**: Casos de prueba lineales
@@ -362,20 +391,22 @@ export class QuoteEngineService {
 Ruqq implementa un sistema multi-tenant completamente funcional utilizando **PostgreSQL schemas separados** por cliente/hotel con **aislamiento total de datos**.
 
 #### **🗄️ Estructura de Schemas**
+
 ```
 PostgreSQL Database:
 ├── schema: public          ← Desarrollo/Demo (datos fake)
-├── schema: tenant_cliente1 ← Hotel Real #1 (datos productivos)  
+├── schema: tenant_cliente1 ← Hotel Real #1 (datos productivos)
 ├── schema: tenant_cliente2 ← Hotel Real #2 (datos productivos)
 └── schema: tenant_clienteN ← Hotel Real #N (datos productivos)
 ```
 
 #### **🔄 Context Switching Automático**
+
 ```typescript
 // Sin header = Desarrollo (public schema)
 GET /api/room-type → Usa schema: public
 
-// Con header = Producción (tenant schema)  
+// Con header = Producción (tenant schema)
 GET /api/room-type
 Headers: { "X-Tenant-ID": "tenant_cliente1" } → Usa schema: tenant_cliente1
 ```
@@ -383,6 +414,7 @@ Headers: { "X-Tenant-ID": "tenant_cliente1" } → Usa schema: tenant_cliente1
 ### **Componentes Multi-Tenant**
 
 #### **1. TenantService - Gestión de Contexto**
+
 ```typescript
 @Injectable({ scope: Scope.REQUEST })
 export class TenantService implements ITenant {
@@ -390,15 +422,20 @@ export class TenantService implements ITenant {
 
   // Lista de tenants válidos (en producción debe venir de BD)
   private readonly validTenants = new Set([
-    'default', 'public',           // ← Desarrollo/Demo
-    'tenant_cliente1', 'cliente1', // ← Hotel Cliente 1  
-    'tenant_cliente2', 'cliente2', // ← Hotel Cliente 2
+    'default',
+    'public', // ← Desarrollo/Demo
+    'tenant_cliente1',
+    'cliente1', // ← Hotel Cliente 1
+    'tenant_cliente2',
+    'cliente2', // ← Hotel Cliente 2
   ])
 
   validateAndCheckTenant(tenantId: string): ITenantContext {
     // Validación de formato
     if (!this.isValidTenantId(tenantId)) {
-      throw new BadRequestException(`Invalid X-Tenant-ID header: Tenant ID solo puede contener letras, números, guiones y guiones bajos`)
+      throw new BadRequestException(
+        `Invalid X-Tenant-ID header: Tenant ID solo puede contener letras, números, guiones y guiones bajos`,
+      )
     }
 
     // Validación de existencia
@@ -413,7 +450,7 @@ export class TenantService implements ITenant {
 
     return {
       tenantId,
-      schema: tenantId === 'default' || tenantId === 'public' ? 'public' : tenantId
+      schema: tenantId === 'default' || tenantId === 'public' ? 'public' : tenantId,
     }
   }
 
@@ -424,16 +461,15 @@ export class TenantService implements ITenant {
 ```
 
 #### **2. TenantMiddleware - Interceptor de Requests**
+
 ```typescript
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
-  constructor(
-    @Inject(TenantService) private readonly tenantService: TenantService,
-  ) {}
+  constructor(@Inject(TenantService) private readonly tenantService: TenantService) {}
 
   use(req: Request & { tenant?: ITenantContext }, res: Response, next: NextFunction) {
     const requestId = Math.random().toString(36).substr(2, 9)
-    
+
     try {
       let tenantId = 'default'
       let detectedFrom = 'default'
@@ -450,42 +486,46 @@ export class TenantMiddleware implements NestMiddleware {
       this.tenantService.setTenantContext(tenantContext)
       req.tenant = tenantContext
 
-      console.log(`[${requestId}] ✅ Tenant context established: ${tenantContext.tenantId} (schema: ${tenantContext.schema}) from ${detectedFrom}`)
+      console.log(
+        `[${requestId}] ✅ Tenant context established: ${tenantContext.tenantId} (schema: ${tenantContext.schema}) from ${detectedFrom}`,
+      )
     } catch (error) {
       console.error(`[${requestId}] ❌ Failed to create tenant context:`, error.message)
       throw error
     }
-    
+
     next()
   }
 }
 ```
 
 #### **3. Repositorios Tenant-Aware con Proxy Pattern**
+
 ```typescript
 function createTenantAwareRepository(dataSource: DataSource, tenantService: TenantService) {
   return new Proxy(dataSource.getRepository(SomeEntity), {
     get(target, prop, receiver) {
       // Interceptar métodos de consulta
-      if (typeof target[prop] === 'function' && 
-          ['find', 'findOne', 'save', 'create', 'update', 'delete', 'createQueryBuilder'].includes(prop as string)) {
-        
-        return function(...args: any[]) {
+      if (
+        typeof target[prop] === 'function' &&
+        ['find', 'findOne', 'save', 'create', 'update', 'delete', 'createQueryBuilder'].includes(prop as string)
+      ) {
+        return function (...args: any[]) {
           const tenantContext = tenantService.getActiveTenant()
           console.log(`[SomeEntityTenantProvider] Executing ${String(prop)} on schema: ${tenantContext.schema}`)
-          
+
           // Schema public = comportamiento por defecto (desarrollo)
           if (tenantContext.schema === 'public') {
             return target[prop].apply(target, args)
           }
-          
+
           // Para createQueryBuilder, cambiar el schema
           if (prop === 'createQueryBuilder') {
             const queryBuilder = target.createQueryBuilder.apply(target, args)
             queryBuilder.from(`${tenantContext.schema}.some_entity`, args[0] || 'someEntity')
             return queryBuilder
           }
-          
+
           // Otros schemas = transacción con SET search_path
           return dataSource.transaction(async manager => {
             await manager.query(`SET search_path TO "${tenantContext.schema}", public`)
@@ -497,7 +537,7 @@ function createTenantAwareRepository(dataSource: DataSource, tenantService: Tena
         }
       }
       return Reflect.get(target, prop, receiver)
-    }
+    },
   })
 }
 ```
@@ -507,7 +547,7 @@ function createTenantAwareRepository(dataSource: DataSource, tenantService: Tena
 **TODOS los módulos principales ya implementan repositorios tenant-aware:**
 
 - ✅ **Auth/User** - `AuthTenantProviders`
-- ✅ **RoomType** - `RoomTypeTenantProviders` 
+- ✅ **RoomType** - `RoomTypeTenantProviders`
 - ✅ **DailyRoomRates** - `DailyRoomRatesTenantProviders`
 - ✅ **ContentBlock** - `ContentBlockTenantProviders`
 - ✅ **QuoteTemplate** - `QuoteTemplateTenantProviders`
@@ -517,6 +557,7 @@ function createTenantAwareRepository(dataSource: DataSource, tenantService: Tena
 ### **🧪 Testing Multi-Tenant**
 
 #### **Endpoints de Debugging**
+
 ```bash
 # Información completa del sistema multi-tenant
 GET /api/tenant-debug
@@ -529,6 +570,7 @@ curl -H "X-Tenant-ID: cliente1" http://localhost:3001/api/tenant-info
 ```
 
 #### **Verificación de Aislamiento**
+
 ```bash
 # Crear datos en tenant específico
 curl -X POST -H "X-Tenant-ID: tenant_cliente1" -H "Content-Type: application/json" \
@@ -537,7 +579,7 @@ curl -X POST -H "X-Tenant-ID: tenant_cliente1" -H "Content-Type: application/jso
 # Verificar que NO aparece en public
 curl http://localhost:3001/api/room-type  # No debe mostrar "Suite Tenant 1"
 
-# Verificar que SÍ aparece en tenant_cliente1  
+# Verificar que SÍ aparece en tenant_cliente1
 curl -H "X-Tenant-ID: tenant_cliente1" http://localhost:3001/api/room-type  # Debe mostrar "Suite Tenant 1"
 ```
 
@@ -548,17 +590,20 @@ curl -H "X-Tenant-ID: tenant_cliente1" http://localhost:3001/api/room-type  # De
 ### **Seeders Implementados**
 
 #### **1. SuperAdminSeeder**
+
 - Crea usuario administrador con credenciales de desarrollo
 - Email: `admin@ruqq.com` / Password: configurado en `.env`
 - Roles: `SUPER_ADMIN`
 - Idempotente: actualiza password si cambia
 
-#### **2. TenantSeeder** 
+#### **2. TenantSeeder**
+
 - Crea tenants de desarrollo: `tenant_cliente1`, `tenant_cliente2`, `tenant_demo`
 - Registra en tabla de control `tenant_creation_log`
 - Idempotente: no duplica tenants existentes
 
 #### **3. InitialDataSeeder (NUEVO)**
+
 ```typescript
 // Reemplaza completamente el anterior RoomTypeSeeder
 export class InitialDataSeeder {
@@ -568,7 +613,7 @@ export class InitialDataSeeder {
     { name: 'Premium', code: 'PRE', totalInventory: 6, baseCapacity: 2, maxCapacity: 6, basePrice: 400 },
     { name: 'Superior', code: 'SUP', totalInventory: 3, baseCapacity: 2, maxCapacity: 5, basePrice: 300 },
     { name: 'Estudio Loft', code: 'EST', totalInventory: 3, baseCapacity: 2, maxCapacity: 2, basePrice: 200 },
-    { name: 'Suite', code: 'SUI', totalInventory: 1, baseCapacity: 2, maxCapacity: 2, basePrice: 100 }
+    { name: 'Suite', code: 'SUI', totalInventory: 1, baseCapacity: 2, maxCapacity: 2, basePrice: 100 },
   ]
 
   async run(): Promise<void> {
@@ -580,13 +625,20 @@ export class InitialDataSeeder {
     // PASO 2: Crear tarifas diarias desde HOY hasta 30/04/2026
     const startDate = new Date()
     const endDate = new Date('2026-04-30')
-    
+
     const allRoomTypes = await roomTypeRepo.find({ order: { code: 'ASC' } })
-    
+
     for (const roomTypeData of this.roomTypesData) {
       const roomType = allRoomTypes.find(rt => rt.code === roomTypeData.code)
       if (roomType) {
-        await this.createDailyRatesForRoomType(dailyRateRepo, roomType, roomTypeData.basePrice, superAdmin.id, startDate, endDate)
+        await this.createDailyRatesForRoomType(
+          dailyRateRepo,
+          roomType,
+          roomTypeData.basePrice,
+          superAdmin.id,
+          startDate,
+          endDate,
+        )
       }
     }
   }
@@ -596,24 +648,28 @@ export class InitialDataSeeder {
 ### **Datos Creados por el Sistema**
 
 #### **Room Types Iniciales**
+
 - **Luxury (LUX)**: 3 unidades, 2-6 pax, $500/noche
-- **Premium (PRE)**: 6 unidades, 2-6 pax, $400/noche  
+- **Premium (PRE)**: 6 unidades, 2-6 pax, $400/noche
 - **Superior (SUP)**: 3 unidades, 2-5 pax, $300/noche
 - **Estudio Loft (EST)**: 3 unidades, 2-2 pax, $200/noche
 - **Suite (SUI)**: 1 unidad, 2-2 pax, $100/noche
 
 #### **Tarifas Diarias Completas**
+
 - **Período**: Desde hoy hasta 30/04/2026
 - **Total días**: ~235 días por room type
 - **Total registros**: 1,175 tarifas diarias (5 room types × 235 días)
 - **Precios aplicados**: Según especificación por room type
 
 ### **Comando de Inicialización**
+
 ```bash
 npm run db:seed
 ```
 
 **Output del comando:**
+
 ```
 ✅ Todos los seeders completados exitosamente!
 📊 Base de datos lista para desarrollo
@@ -641,6 +697,7 @@ npm run db:seed
 ### **💰 Motor de Cotizaciones (Público)**
 
 #### **Endpoint Principal - Cálculo de Cotizaciones**
+
 ```http
 POST /api/quotes/calculate
 Content-Type: application/json
@@ -653,6 +710,7 @@ Content-Type: application/json
 ```
 
 **Respuesta Ejemplo:**
+
 ```json
 {
   "pax": 4,
@@ -672,13 +730,13 @@ Content-Type: application/json
         {
           "startDate": "2025-10-01",
           "endDate": "2025-10-01",
-          "pricePerNight": 500.00,
+          "pricePerNight": 500.0,
           "nights": 1,
-          "subtotal": 500.00
+          "subtotal": 500.0
         }
         // ... más segmentos
       ],
-      "totalPrice": 4500.00
+      "totalPrice": 4500.0
     }
   ],
   "unavailable": [
@@ -696,6 +754,7 @@ Content-Type: application/json
 ```
 
 #### **Endpoint de Cotización Formateada - NUEVO**
+
 ```http
 POST /api/quotes/generate-formatted
 Content-Type: application/json
@@ -708,6 +767,7 @@ Content-Type: application/json
 ```
 
 **Respuesta Formateada para WhatsApp:**
+
 ```json
 {
   "formattedQuote": "Del 01/03 al 05/03, 4 noches, para 4/4 personas:\n▷Luxury, 2 ambientes, 45m²\nLujo y sofisticación en cada detalle con amenidades premium : $2.000,00\n\n▷Premium, 2 ambientes, 35m²\nComfort superior con todas las comodidades modernas : $1.600,00\n\n▷Superior, 2 ambientes, 30m²\nEspacio amplio y elegante diseño contemporáneo : $1.200,00\n\nESTOS PRECIOS INCLUYEN:\n\n✅ Desayuno buffet completo\n✅ WiFi de alta velocidad\n✅ Estacionamiento gratuito\n✅ Acceso completo al spa y gimnasio\n✅ Servicio de limpieza diario\n✅ Amenities premium\n✅ Conserje 24/7\n\nCONDICIONES:\n\n⚠️ Precios válidos por 7 días\n⚠️ Sujeto a disponibilidad al momento de la reserva\n⚠️ No incluye city tax (€2 por persona por noche)\n\nCONTACTO:\n\n📱 WhatsApp: +54 11 1234-5678\n✉️ Email: reservas@hotel.com\n🌐 Web: www.hotel.com"
@@ -717,9 +777,11 @@ Content-Type: application/json
 ### **📋 Sistema de Plantillas de Cotización**
 
 #### **Templates Personalizables**
+
 El sistema incluye un potente generador de cotizaciones formateadas que utiliza templates personalizables con bloques de contenido reutilizables.
 
 **Características del Sistema:**
+
 - **Templates por defecto**: Con bloques pre-configurados para diferentes secciones
 - **Content Blocks**: Bloques reutilizables de contenido (servicios, condiciones, contacto)
 - **Formato WhatsApp**: Salida optimizada para mensajería móvil
@@ -727,6 +789,7 @@ El sistema incluye un potente generador de cotizaciones formateadas que utiliza 
 - **Personalización**: Templates específicos por hotel/tenant
 
 **Estructura de Template:**
+
 ```typescript
 // Bloques típicos de una cotización:
 - GREETING: Encabezado con fechas y huéspedes
@@ -739,6 +802,7 @@ El sistema incluye un potente generador de cotizaciones formateadas que utiliza 
 ### **🎯 Sistema de Gestión de Tenants**
 
 #### **Información de Tenant Activo**
+
 ```http
 GET /api/tenant-info
 Headers: X-Tenant-ID: cliente1
@@ -754,6 +818,7 @@ Headers: X-Tenant-ID: cliente1
 ```
 
 #### **Debug Completo Multi-Tenant**
+
 ```http
 GET /api/tenant-debug
 
@@ -761,7 +826,7 @@ GET /api/tenant-debug
 {
   "request": { /* contexto actual */ },
   "validation": { /* validaciones en tiempo real */ },
-  "system": { 
+  "system": {
     "validTenants": ["default", "cliente1", "cliente2"],
     "defaultTenant": {"tenantId": "default", "schema": "public"}
   },
@@ -782,7 +847,7 @@ Content-Type: application/json
 {
   "roomTypeId": "ba3d2d52-ddb7-4919-b23d-3d8c40fdce32",
   "startDate": "2025-09-15",
-  "endDate": "2025-09-21", 
+  "endDate": "2025-09-21",
   "baseRate": 300,
   "availableRooms": 5,
   "dayOfWeekFilter": [5, 6]  // Solo viernes y sábado
@@ -790,17 +855,19 @@ Content-Type: application/json
 ```
 
 **Parámetro `dayOfWeekFilter` (Opcional):**
+
 - **Formato**: Array de números [0-6]
 - **Estándar JavaScript**: 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado
 - **Sin filtro**: Comportamiento actual (aplica a todos los días)
 - **Con filtro**: Solo aplica cambios a los días especificados
 
 **Ejemplos de Uso:**
+
 ```typescript
 // Solo fines de semana (viernes y sábado)
 "dayOfWeekFilter": [5, 6]
 
-// Solo días laborables (lunes a viernes)  
+// Solo días laborables (lunes a viernes)
 "dayOfWeekFilter": [1, 2, 3, 4, 5]
 
 // Solo domingos (ideal para tarifas especiales)
@@ -811,6 +878,7 @@ Content-Type: application/json
 ```
 
 **Validaciones y Errores:**
+
 - **Array vacío**: Error "dayOfWeekFilter debe ser un array no vacío"
 - **Números inválidos**: Error si contiene números fuera del rango 0-6
 - **Sin coincidencias**: Error descriptivo con días disponibles vs solicitados
@@ -825,12 +893,14 @@ Content-Type: application/json
 ```
 
 **Casos de Uso Típicos:**
+
 - **Pricing de fin de semana**: Precios más altos viernes-sábado
 - **Tarifas corporativas**: Precios especiales lunes-viernes
 - **Promociones específicas**: Descuentos solo domingos
 - **Temporadas flexibles**: Aplicar cambios solo a ciertos días
 
 ### **🏨 Gestión de Room Types (Admin)**
+
 ```http
 GET /admin/room-types                    # Listar tipos de habitación
 POST /admin/room-types                   # Crear nuevo tipo
@@ -839,6 +909,7 @@ DELETE /admin/room-types/{id}           # Eliminar tipo
 ```
 
 ### **🔐 Autenticación**
+
 ```http
 POST /auth/login                        # Login con email/password
 POST /auth/register                     # Registro de usuario
@@ -857,7 +928,7 @@ El sistema usa **EXCLUSIVAMENTE** repositorios tenant-aware personalizados.
 
 ```typescript
 // ✅ PATRÓN CORRECTO
-@Injectable() 
+@Injectable()
 export class SomeEntityRepository extends Repository<SomeEntity> {
   constructor(
     @Inject(repositories.SOME_ENTITY_REPOSITORY)
@@ -878,7 +949,7 @@ export class SomeService {
   ) {}
 }
 
-// ✅ Configuración del Module  
+// ✅ Configuración del Module
 @Module({
   imports: [ConfigModule, DatabaseModule, CommonModule, AuthModule],
   providers: [...SomeEntityTenantProviders, SomeEntityRepository, SomeService],
@@ -894,19 +965,21 @@ TypeOrmModule.forFeature([SomeEntity]) // ← PROHIBIDO
 ### **Sistema de Generación de Código**
 
 #### **Comando de Generación**
+
 ```bash
 npm run create-engine <entity-name>
 ```
 
 #### **Estructura Generada Automáticamente**
+
 ```
 src/resources/entity-name/
 ├── controllers/                    # REST endpoints con Swagger
-│   └── entity-name.controller.ts  
+│   └── entity-name.controller.ts
 ├── services/                      # Lógica de negocio
-│   └── entity-name.service.ts     
+│   └── entity-name.service.ts
 ├── entities/                      # TypeORM con relaciones
-│   └── entity-name.entity.ts      
+│   └── entity-name.entity.ts
 ├── dto/                          # DTOs con validaciones
 │   ├── entity-name-create.dto.ts
 │   ├── entity-name-update.dto.ts
@@ -921,6 +994,7 @@ src/resources/entity-name/
 ### **🚨 Manejo Crítico de Fechas (GMT-3 Argentina)**
 
 #### **Patrón CORRECTO para DTOs**
+
 ```typescript
 @ApiProperty({
   description: 'Fecha de inicio del período',
@@ -932,6 +1006,7 @@ startDate: Date  // ← Tipo Date, NO string
 ```
 
 #### **Patrón CORRECTO para Iteraciones**
+
 ```typescript
 // ✅ CORRECTO - Sin zona horaria para evitar desfase
 let currentDate = new Date(checkIn)
@@ -940,13 +1015,13 @@ const checkOutDate = new Date(checkOut)
 while (currentDate < checkOutDate) {
   const dateString = currentDate.toISOString().split('T')[0]
   const dayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay()
-  
+
   // Avanzar al siguiente día (LOCAL, no UTC)
   currentDate.setDate(currentDate.getDate() + 1)
 }
 
 // ❌ INCORRECTO - Causa desfase por GMT-3
-let currentDate = new Date(checkIn + 'T00:00:00.000Z')  // ← Problemático
+let currentDate = new Date(checkIn + 'T00:00:00.000Z') // ← Problemático
 ```
 
 ---
@@ -983,6 +1058,7 @@ src/
 ### **Servicios Clave**
 
 #### **QuoteEngineService - Motor Principal**
+
 - **Responsabilidad**: Cálculo de cotizaciones con modelo OTA
 - **Algoritmo**: Query directo a `daily_room_rates`
 - **Performance**: ~50 líneas vs 500+ del modelo anterior
@@ -990,8 +1066,9 @@ src/
 - **Rate Plans**: Soporte completo para múltiples planes tarifarios (BAR, NR, APD, etc.)
 
 #### **QuotesService - Generación de Cotizaciones Formateadas**
+
 - **Responsabilidad**: Generación de presupuestos con templates personalizables
-- **Funciones**: 
+- **Funciones**:
   - Integración con `QuoteEngineService` para cálculos de precios
   - Aplicación de templates con bloques de contenido
   - Formateo automático para WhatsApp y otros canales
@@ -1000,6 +1077,7 @@ src/
 - **Multi-canal**: Formato optimizado para WhatsApp, email, web
 
 #### **DailyRatesService - Gestión de Tarifas**
+
 - **Responsabilidad**: CRUD y bulk operations en `daily_room_rates`
 - **Funciones**: Upsert masivo, generación de rangos de fechas
 - **Tenant-aware**: Repositorio con Proxy Pattern
@@ -1011,6 +1089,7 @@ src/
   - **TypeScript Fixes**: Resolución de errores de compilación con non-null assertions
 
 #### **TenantService - Gestión Multi-Tenant**
+
 - **Responsabilidad**: Validación y contexto de tenants
 - **Scope**: REQUEST (un contexto por request)
 - **Validaciones**: Formato, existencia, fallback en desarrollo
@@ -1020,6 +1099,7 @@ src/
 ## 🔧 Herramientas de Desarrollo
 
 ### **Comandos NPM Disponibles**
+
 ```bash
 # Desarrollo
 npm run start:dev                 # Servidor con hot-reload
@@ -1050,6 +1130,7 @@ docker-compose up -d             # Levantar PostgreSQL
 ```
 
 ### **Variables de Entorno Multi-Tenant**
+
 ```bash
 # Base de datos
 PG_DB_HOST=localhost
@@ -1084,6 +1165,7 @@ CORS_WHITE_LIST=http://localhost:4200
 ### **✅ Sistema Completamente Operativo**
 
 #### **Motor OTA v3.0**
+
 - ✅ Refactor total completado: modelo híbrido → modelo OTA estándar
 - ✅ `DailyRoomRate` implementado con todos los campos estándar OTA
 - ✅ `QuoteEngineService` ultra-simplificado funcionando
@@ -1091,6 +1173,7 @@ CORS_WHITE_LIST=http://localhost:4200
 - ✅ Performance optimizada: de 500+ líneas a ~100 líneas
 
 #### **Multi-Tenancy**
+
 - ✅ Sistema completamente funcional con schemas PostgreSQL separados
 - ✅ TODOS los módulos usando repositorios tenant-aware
 - ✅ TenantService con validación robusta y fallback en desarrollo
@@ -1098,12 +1181,14 @@ CORS_WHITE_LIST=http://localhost:4200
 - ✅ Aislamiento total de datos verificado
 
 #### **Datos Iniciales**
+
 - ✅ InitialDataSeeder creando 5 room types con precios
 - ✅ Tarifas diarias generadas hasta 30/04/2026 (1,175+ registros)
 - ✅ Sistema listo para cotizaciones inmediatamente después de `npm run db:seed`
 - ✅ SuperAdmin y tenants de desarrollo configurados
 
 #### **API Funcional**
+
 - ✅ Motor de cotizaciones respondiendo correctamente
 - ✅ Cotizaciones con capacidad, precios y disponibilidad
 - ✅ Sistema multi-tenant transparente para cliente
@@ -1115,24 +1200,28 @@ CORS_WHITE_LIST=http://localhost:4200
 ### **🎯 Beneficios Técnicos Alcanzados**
 
 #### **Performance**
+
 - **Query ultra-simple**: Una consulta por room type vs múltiples consultas complejas
 - **Sin fragmentación**: Eliminado split/consolidation que generaba períodos innecesarios
 - **Índices optimizados**: `(room_type_id, date)` para máxima velocidad
 - **Codebase reducido**: 80% menos código en el motor de precios
 
 #### **Compatibilidad OTA**
+
 - **Estándar Booking.com**: Mismo diseño de datos `room_type_id + date + price`
 - **API directa**: Sin middleware ni transformaciones complejas
 - **Channel Manager ready**: Integración nativa sin adaptaciones
 - **Escalabilidad**: Preparado para millones de registros diarios
 
 #### **Multi-Tenancy Enterprise**
+
 - **Aislamiento total**: Cada hotel opera en su propio schema PostgreSQL
 - **Desarrollo seguro**: Schema público para pruebas sin impactar producción
 - **Escalabilidad**: Agregar hoteles = crear schema (automático)
 - **Performance**: Consultas optimizadas por tenant específico
 
 #### **Mantenibilidad**
+
 - **Código autodocumentado**: Lógica directa sin casos edge
 - **Testing simple**: Casos lineales sin complejidad de consolidation
 - **Debugging fácil**: Query SQL directo visible y trazeable
@@ -1154,6 +1243,7 @@ CORS_WHITE_LIST=http://localhost:4200
 ## 💡 Próximos Pasos y Roadmap
 
 ### **Optimizaciones Inmediatas Sugeridas**
+
 1. **Completar room descriptions**: Agregar descripciones faltantes para "Estudio Loft" y "Suite" (actualmente null)
 2. **Cache Redis** para consultas frecuentes de tarifas y templates
 3. **Métricas de performance** del algoritmo de cotización
@@ -1162,6 +1252,7 @@ CORS_WHITE_LIST=http://localhost:4200
 6. **Multi-idioma**: Soporte para templates en inglés, español, portugués
 
 ### **Funcionalidades Futuras**
+
 - 🔍 **Búsqueda avanzada** con filtros complejos
 - 📊 **Analytics** de ocupación y revenue
 - 🌐 **API GraphQL** para queries complejas del frontend
@@ -1181,16 +1272,16 @@ CORS_WHITE_LIST=http://localhost:4200
 
 - **🏗️ Arquitectura OTA Estándar** compatible con las principales plataformas
 - **🌐 Multi-tenancy Enterprise** con aislamiento total por schema
-- **⚡ Performance Empresarial** con queries ultra-optimizados  
+- **⚡ Performance Empresarial** con queries ultra-optimizados
 - **🔧 Código Mantenible** siguiendo principios de ingeniería de software
 - **🚀 Escalabilidad Horizontal** preparada para crecimiento exponencial
 
-El sistema está **100% operativo** y listo para **producción inmediata**. 
+El sistema está **100% operativo** y listo para **producción inmediata**.
 
 **¡La plataforma definitiva para gestión hotelera moderna ha llegado! 🏨✨**
 
 ---
 
-*Documentación técnica completa - Ruqq Hotel Management System v3.0*  
-*Actualizado el 2025-01-09 - Motor OTA Estándar con Sistema Multi-Tenant Completo*  
-*Sistema de gestión hotelera integral con arquitectura empresarial de clase mundial*
+_Documentación técnica completa - Ruqq Hotel Management System v3.0_  
+_Actualizado el 2025-01-09 - Motor OTA Estándar con Sistema Multi-Tenant Completo_  
+_Sistema de gestión hotelera integral con arquitectura empresarial de clase mundial_
