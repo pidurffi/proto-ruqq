@@ -338,6 +338,8 @@ export class QuoteEngineService {
 - **Sin lógica de split**: Eliminadas 290+ líneas de código complejo
 - **Sin consolidation**: No hay fragmentación que limpiar
 - **Índices optimizados**: `(room_type_id, date)` para máxima velocidad
+- **Caché inteligente**: Rate plans en memoria (90% menos queries para operaciones bulk)
+- **Métodos optimizados**: Validación UUID unificada sin duplicación de código
 
 #### **✅ Compatibilidad OTA**
 - **Estándar Booking.com**: Mismo diseño `<roomrate date="..." price="..." />`
@@ -888,6 +890,11 @@ src/
 - **Responsabilidad**: CRUD y bulk operations en `daily_room_rates`
 - **Funciones**: Upsert masivo, generación de rangos de fechas
 - **Tenant-aware**: Repositorio con Proxy Pattern
+- **Optimizaciones Aplicadas**:
+  - **Caché de Rate Plan**: Sistema de caché en memoria para `getDefaultRatePlanId()` evita queries repetitivas
+  - **Métodos Helper**: `isValidUuid()` y `validateAndNormalizeUid()` eliminan duplicación de código
+  - **Performance**: Reducción de ~90% en queries para operaciones bulk (30 días: 30 queries → 1 query)
+  - **Imports Limpieza**: Eliminados imports TypeORM no utilizados (`Between`, `LessThanOrEqual`, `MoreThanOrEqual`)
 
 #### **TenantService - Gestión Multi-Tenant**
 - **Responsabilidad**: Validación y contexto de tenants

@@ -338,6 +338,28 @@ async calculateQuote(roomTypeId: string, checkIn: string, checkOut: string) {
 - **Compatibilidad** 100% con Channel Managers
 - **Mantenibilidad** drasticamente mejorada
 
+### **🚀 Optimizaciones de Performance Aplicadas:**
+- **Sistema de Caché Inteligente**: 
+  - `getDefaultRatePlanId()` usa caché en memoria para evitar queries repetitivas
+  - Reducción de 90% en queries para operaciones bulk (30 días: 30 queries → 1 query inicial + caché)
+- **Refactoring de Código**:
+  - Métodos helper `isValidUuid()` y `validateAndNormalizeUid()` eliminan duplicación
+  - Limpieza de imports no utilizados (`Between`, `LessThanOrEqual`, `MoreThanOrEqual`)
+- **Patrón de Caché Simple pero Efectivo**:
+  ```typescript
+  private defaultRatePlanId: string | null = null // ← Variable de instancia
+  
+  private async getDefaultRatePlanId(): Promise<string> {
+    if (this.defaultRatePlanId) {
+      return this.defaultRatePlanId // ← Cache hit: retorno inmediato
+    }
+    // Solo primera vez: query BD + almacenar en caché
+    const result = await this.dataSource.query('SELECT id FROM rate_plans...')
+    this.defaultRatePlanId = result[0].id
+    return this.defaultRatePlanId
+  }
+  ```
+
 ### **🗃️ Datos Iniciales Automatizados:**
 El `InitialDataSeeder` crea automáticamente:
 - 5 tipos de habitación (LUX, PRE, SUP, EST, SUI)
