@@ -769,6 +769,67 @@ GET /api/tenant-debug
 }
 ```
 
+### **📅 Sistema de Tarifas con Filtro de Días de Semana**
+
+#### **Configuración de Tarifas por Días Específicos - NUEVO**
+
+El sistema permite configurar precios aplicando cambios solo a días de semana específicos dentro de un período, ideal para pricing diferencial de fines de semana, días laborables, etc.
+
+```http
+POST /api/daily-room-rates/rates/bulk
+Content-Type: application/json
+
+{
+  "roomTypeId": "ba3d2d52-ddb7-4919-b23d-3d8c40fdce32",
+  "startDate": "2025-09-15",
+  "endDate": "2025-09-21", 
+  "baseRate": 300,
+  "availableRooms": 5,
+  "dayOfWeekFilter": [5, 6]  // Solo viernes y sábado
+}
+```
+
+**Parámetro `dayOfWeekFilter` (Opcional):**
+- **Formato**: Array de números [0-6]
+- **Estándar JavaScript**: 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado
+- **Sin filtro**: Comportamiento actual (aplica a todos los días)
+- **Con filtro**: Solo aplica cambios a los días especificados
+
+**Ejemplos de Uso:**
+```typescript
+// Solo fines de semana (viernes y sábado)
+"dayOfWeekFilter": [5, 6]
+
+// Solo días laborables (lunes a viernes)  
+"dayOfWeekFilter": [1, 2, 3, 4, 5]
+
+// Solo domingos (ideal para tarifas especiales)
+"dayOfWeekFilter": [0]
+
+// Fines de semana completos (domingo y sábado)
+"dayOfWeekFilter": [0, 6]
+```
+
+**Validaciones y Errores:**
+- **Array vacío**: Error "dayOfWeekFilter debe ser un array no vacío"
+- **Números inválidos**: Error si contiene números fuera del rango 0-6
+- **Sin coincidencias**: Error descriptivo con días disponibles vs solicitados
+
+```json
+// Ejemplo de error cuando no hay viernes/sábado en el período:
+{
+  "message": "En el período 14/09/2025-16/09/2025 no hay 'viernes' ni 'sábado'. Días disponibles: 'domingo', 'lunes', 'martes'",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+**Casos de Uso Típicos:**
+- **Pricing de fin de semana**: Precios más altos viernes-sábado
+- **Tarifas corporativas**: Precios especiales lunes-viernes
+- **Promociones específicas**: Descuentos solo domingos
+- **Temporadas flexibles**: Aplicar cambios solo a ciertos días
+
 ### **🏨 Gestión de Room Types (Admin)**
 ```http
 GET /admin/room-types                    # Listar tipos de habitación

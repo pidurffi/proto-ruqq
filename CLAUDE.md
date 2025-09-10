@@ -401,6 +401,74 @@ El `InitialDataSeeder` crea automáticamente:
 - Tarifas diarias desde hoy hasta 30/04/2026
 - Precios configurados: LUX $500, PRE $400, SUP $300, EST $200, SUI $100
 
+### **📅 Sistema de Filtro de Días de Semana - IMPLEMENTADO**
+
+Se ha implementado una funcionalidad avanzada de filtrado por días de semana para el sistema de tarifas, permitiendo aplicar cambios de precios solo a días específicos dentro de un período.
+
+#### **Funcionalidades Implementadas:**
+- **Filtro por Días**: Parámetro opcional `dayOfWeekFilter: number[]` en `DailyRateBulkDto`
+- **Estándar JavaScript**: 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado
+- **Validaciones Robustas**: Array no vacío, números 0-6, mensajes de error descriptivos
+- **Comportamiento Compatible**: Sin filtro = comportamiento actual (todos los días)
+- **Casos de Uso**: Pricing de fin de semana, tarifas corporativas, promociones específicas
+
+#### **Implementación Técnica:**
+```typescript
+// Service: DailyRatesService.setRatesForPeriod()
+async setRatesForPeriod(
+  roomTypeId: string,
+  startDate: string, 
+  endDate: string,
+  baseRate: number,
+  availableRooms: number,
+  uid: string,
+  options: {
+    // ... opciones existentes
+    dayOfWeekFilter?: number[]  // ← NUEVO: Filtro de días de semana
+  } = {}
+): Promise<void>
+
+// DTO: DailyRateBulkDto
+@ApiProperty({
+  description: 'Filtro de días de semana (0=Dom, 1=Lun, ..., 6=Sáb)',
+  example: [5, 6],
+  required: false
+})
+@IsOptional()
+@IsArray()
+@IsInt({ each: true })
+@Min(0, { each: true })
+@Max(6, { each: true })
+dayOfWeekFilter?: number[]
+```
+
+#### **Métodos Helper Implementados:**
+- **`validateDayOfWeekFilter()`**: Validación de formato y rango
+- **`filterDatesByWeekDay()`**: Filtrado de fechas por día de semana
+- **`getDayName()`**: Conversión de número a nombre en español
+- **`formatDateForError()`**: Formato de fechas para mensajes de error
+
+#### **Casos de Uso Validados:**
+- ✅ **Fines de semana** `[5,6]`: Solo viernes y sábado
+- ✅ **Días laborables** `[1,2,3,4,5]`: Solo lunes a viernes  
+- ✅ **Error descriptivo**: Cuando no hay coincidencias en el período
+- ✅ **Validaciones**: Array vacío, números inválidos
+
+#### **Endpoint Actualizado:**
+```bash
+POST /api/daily-room-rates/rates/bulk
+
+# Ejemplo: Solo fines de semana
+{
+  "roomTypeId": "uuid-here",
+  "startDate": "2025-09-15",
+  "endDate": "2025-09-21", 
+  "baseRate": 300,
+  "availableRooms": 5,
+  "dayOfWeekFilter": [5, 6]  // ← NUEVO
+}
+```
+
 ### **🔧 Fixes Técnicos Aplicados en esta Sesión:**
 
 #### **TypeScript Compilation Errors Resueltos:**
@@ -447,6 +515,11 @@ El `InitialDataSeeder` crea automáticamente:
 ### Testing del Sistema de Cotizaciones Formateadas
 - **Cotización básica**: `curl -X POST -H "Content-Type: application/json" http://localhost:3001/api/quotes/calculate -d '{"pax":4,"checkInDate":"2025-03-01","checkOutDate":"2025-03-05"}'`
 - **Cotización formateada**: `curl -X POST -H "Content-Type: application/json" http://localhost:3001/api/quotes/generate-formatted -d '{"pax":4,"checkInDate":"2025-03-01","checkOutDate":"2025-03-05"}'`
+
+### Testing del Sistema de Filtro de Días de Semana
+- **Tarifas de fin de semana**: `curl -X POST -H "Content-Type: application/json" http://localhost:3001/api/daily-room-rates/rates/bulk -d '{"roomTypeId":"uuid","startDate":"2025-09-15","endDate":"2025-09-21","baseRate":300,"availableRooms":5,"dayOfWeekFilter":[5,6]}'`
+- **Días laborables**: `curl -X POST -H "Content-Type: application/json" http://localhost:3001/api/daily-room-rates/rates/bulk -d '{"roomTypeId":"uuid","startDate":"2025-09-22","endDate":"2025-09-28","baseRate":400,"availableRooms":2,"dayOfWeekFilter":[1,2,3,4,5]}'`
+- **Error sin coincidencias**: Enviar filtro `[5,6]` en período que no contenga viernes/sábado
 
 ### Generación de Entidades
 ## Obligatorio: siempre usar el generador para crear entidades vacías y luego agregar las propiedades (campos)
