@@ -156,7 +156,10 @@ export class PriceMatrixService {
       maxCapacity: roomType.maxCapacity
     }
 
-    // NUEVA LÓGICA: Query con Rate Plans incluidos
+    // 1. OBTENER TODOS LOS RATE PLANS ACTIVOS (independiente de si tienen datos)
+    const allRatePlans = await this.dailyRatesRepository.findAllRatePlans()
+    
+    // 2. OBTENER DATOS EXISTENTES para este room type y período
     const startDate = dateHeaders[0]
     const endDate = dateHeaders[dateHeaders.length - 1]
     const dailyRates = await this.dailyRatesRepository.findRatesGroupedByRatePlan(
@@ -165,27 +168,23 @@ export class PriceMatrixService {
       endDate
     )
 
-    // Agrupar por Rate Plan
+    // 3. Agrupar datos existentes por Rate Plan
     const ratePlanGroups = new Map<string, any[]>()
-    const ratePlansInfo = new Map<string, any>()
-
     for (const rate of dailyRates) {
       const ratePlanId = rate.ratePlanId
-      
       if (!ratePlanGroups.has(ratePlanId)) {
         ratePlanGroups.set(ratePlanId, [])
-        ratePlansInfo.set(ratePlanId, rate.ratePlan)
       }
-      
       ratePlanGroups.get(ratePlanId)!.push(rate)
     }
 
-    // Construir sub-filas por Rate Plan
+    // 4. Construir sub-filas por TODOS los Rate Plans (tengan o no datos)
     const ratePlanRows: PriceMatrixRatePlanRowDto[] = []
     let allValidPrices: number[] = []
 
-    for (const [ratePlanId, rates] of ratePlanGroups.entries()) {
-      const ratePlanInfo = ratePlansInfo.get(ratePlanId)
+    for (const ratePlanInfo of allRatePlans) {
+      const ratePlanId = ratePlanInfo.id
+      const rates = ratePlanGroups.get(ratePlanId) || [] // Vacío si no hay datos
       const prices: PriceCellDto[] = []
       let validPrices: number[] = []
 
