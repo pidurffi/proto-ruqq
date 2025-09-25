@@ -3,6 +3,7 @@ import { Inject, Injectable, BadRequestException } from '@nestjs/common'
 import { DailyRoomRatesRepository } from '../../daily-room-rates/repositories/daily-room-rates.repository'
 import { RoomTypeRepository } from '../../room-type/repositories/room-type.repository'
 import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto, QuoteSegmentDto, UnavailableRoomTypeDto, RejectionReasonCode, RatePlanQuoteDto } from '../dto'
+import { DateUtils } from '../../../common/utils/date.utils'
 
 /**
  * QuoteEngineService - Presupuestador Simple y Limpio
@@ -29,8 +30,12 @@ export class QuoteEngineService {
   async calculateQuote(quoteBudgetDto: QuoteBudgetDto): Promise<QuoteResponseDto> {
     const { pax, checkInDate, checkOutDate } = quoteBudgetDto
 
-    // Validar fechas
-    this.validateDates(checkInDate.toString(), checkOutDate.toString())
+    // Validar fechas usando el estándar centralizado
+    DateUtils.validateDateRange(checkInDate.toString(), checkOutDate.toString(), {
+      allowToday: true,
+      maxNights: 365,
+      minNights: 1
+    })
 
     // Obtener room types disponibles (tenant-aware)
     const roomTypes = await this.roomTypeRepository.find()
@@ -104,12 +109,12 @@ export class QuoteEngineService {
       }
     }
 
-    // 2. Calcular noches requeridas
-    const nightsNeeded = this.calculateNights(checkIn, checkOut)
+    // 2. Calcular noches requeridas usando el estándar centralizado
+    const nightsNeeded = DateUtils.calculateNights(checkIn, checkOut)
     
     // 3. Obtener tarifas diarias con información de rate plans
     const startDate = checkIn
-    const endDate = this.subtractDays(checkOut, 1) // La última noche es checkout-1
+    const endDate = DateUtils.addDays(checkOut, -1) // La última noche es checkout-1
 
     // Query para obtener rates con información de rate plans
     const dailyRatesWithPlans = await this.dailyRatesRepository.query(`
@@ -230,40 +235,5 @@ export class QuoteEngineService {
     }
   }
 
-  // Método removido - lógica simplificada inline
-
-  /**
-   * Validar fechas de entrada
-   */
-  private validateDates(checkIn: string, checkOut: string): void {
-    const checkInDate = new Date(checkIn)
-    const checkOutDate = new Date(checkOut)
-
-    if (checkInDate >= checkOutDate) {
-      throw new BadRequestException('La fecha de check-in debe ser anterior al check-out')
-    }
-
-    if (checkInDate < new Date()) {
-      throw new BadRequestException('La fecha de check-in no puede ser en el pasado')
-    }
-  }
-
-  /**
-   * Calcular número de noches entre fechas
-   */
-  private calculateNights(checkIn: string, checkOut: string): number {
-    const checkInDate = new Date(checkIn)
-    const checkOutDate = new Date(checkOut)
-    const diffTime = checkOutDate.getTime() - checkInDate.getTime()
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  }
-
-  /**
-   * Restar días a una fecha
-   */
-  private subtractDays(dateString: string, days: number): string {
-    const date = new Date(dateString)
-    date.setDate(date.getDate() - days)
-    return date.toISOString().split('T')[0]
-  }
+  // REFACTORIZADO: Todos los métodos de manejo de fechas ahora están centralizados en DateUtils
 }

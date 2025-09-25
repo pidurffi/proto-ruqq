@@ -9,6 +9,7 @@ import { DataSource } from 'typeorm'
 import { resources } from '../../../engine/database/constants'
 import { QuoteBudgetDto, QuoteResponseDto, RoomTypeQuoteDto, QuoteSegmentDto, UnavailableRoomTypeDto, RejectionReasonCode } from '../dto'
 import { QuoteEngineService } from './quote-engine.service'
+import { DateUtils } from '../../../common/utils/date.utils'
 
 /**
  * QuotesService - REFACTORIZADO para modelo OTA estándar
@@ -130,16 +131,16 @@ export class QuotesService {
       }
     }
 
-    // PASO B: OBTENER TODAS LAS TARIFAS DEL PERÍODO (1 QUERY SIMPLE)
+    // PASO B: OBTENER TODAS LAS TARIFAS DEL PERÍODO (1 QUERY SIMPLE) - REFACTORIZADO
     const dailyRates = await this.dailyRatesRepository.findAvailableRatesForPeriod(
       roomType.id,
       checkIn,
-      this.subtractDays(checkOut, 1), // checkOut -1 día para noches
+      DateUtils.addDays(checkOut, -1), // checkOut -1 día para noches
       1 // Mínimo 1 habitación disponible
     )
 
-    // Validar que tenemos tarifas para todas las noches necesarias
-    const expectedNights = this.calculateNightsBetween(checkIn, this.subtractDays(checkOut, 1))
+    // REFACTORIZADO: Validar que tenemos tarifas para todas las noches necesarias
+    const expectedNights = DateUtils.calculateNights(checkIn, checkOut)
     
     if (dailyRates.length !== expectedNights) {
       return {
@@ -230,8 +231,8 @@ export class QuotesService {
       }
     }
 
-    // Verificar closed_to_departure en fecha de check-out
-    const checkOutDateAdjusted = this.subtractDays(checkOut, 1)
+    // REFACTORIZADO: Verificar closed_to_departure en fecha de check-out
+    const checkOutDateAdjusted = DateUtils.addDays(checkOut, -1)
     const checkOutRate = dailyRates.find(rate => 
       rate.date.toISOString().split('T')[0] === checkOutDateAdjusted
     )
@@ -265,13 +266,12 @@ export class QuotesService {
   }
 
   //========================================
-  // UTILIDADES SIMPLES - SIN CAMBIOS
+  // UTILIDADES SIMPLIFICADAS - REFACTORIZADO
   //========================================
 
   private validateQuoteRequest(checkIn: string, checkOut: string): void {
-    if (checkIn >= checkOut) {
-      throw new BadRequestException('La fecha de check-in debe ser anterior al check-out')
-    }
+    // REFACTORIZADO: Usar DateUtils para validación consistente
+    DateUtils.validateDateRange(checkIn, checkOut, { allowToday: true })
   }
 
   private async getAllRoomTypes(): Promise<any[]> {
@@ -281,25 +281,13 @@ export class QuotesService {
     })
   }
 
-  private calculateNightsBetween(startDate: string, endDate: string): number {
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  }
-
-  private subtractDays(dateString: string, days: number): string {
-    const date = new Date(dateString)
-    date.setDate(date.getDate() - days)
-    return date.toISOString().split('T')[0]
-  }
-
   /**
    * Generar presupuesto formateado usando template por defecto
    */
   async generateFormattedQuote(quoteBudgetDto: QuoteBudgetDto): Promise<string> {
-    // 1. Obtener cotización básica
+    // 1. Obtener cotización básica usando QuoteEngineService
     const quote = await this.quoteEngineService.calculateQuote(quoteBudgetDto)
-    
+
     if (!quote.available || !quote.available.length) {
       throw new BadRequestException('No hay habitaciones disponibles para las fechas seleccionadas')
     }
@@ -331,14 +319,13 @@ export class QuotesService {
 
     // 5. Generar contenido formateado
     let formattedQuote = ''
-    
-    // Formatear fechas
-    const checkInFormatted = this.formatDateForDisplay(quoteBudgetDto.checkInDate.toString())
-    const checkOutFormatted = this.formatDateForDisplay(quoteBudgetDto.checkOutDate.toString())
-    const totalNights = this.calculateNightsBetween(
-      quoteBudgetDto.checkInDate.toString(), 
-      this.subtractDays(quoteBudgetDto.checkOutDate.toString(), 1)
-    )
+
+    // REFACTORIZADO: Usar DateUtils para formateo consistente
+    const checkInFormatted = DateUtils.formatForDisplay(quote.checkInDate)
+    const checkOutFormatted = DateUtils.formatForDisplay(quote.checkOutDate)
+
+    // REFACTORIZADO: Usar DateUtils para cálculo consistente
+    const totalNights = DateUtils.calculateNights(quote.checkInDate, quote.checkOutDate)
 
     // Para cada room type disponible, generar su descripción
     for (const roomTypeQuote of quote.available) {
@@ -364,12 +351,8 @@ export class QuotesService {
     return formattedQuote.trim()
   }
 
-  private formatDateForDisplay(dateString: string): string {
-    const date = new Date(dateString)
-    const day = date.getDate().toString().padStart(2, '0')
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    return `${day}/${month}`
-  }
+  // REFACTORIZADO: Todos los métodos de formateo de fechas eliminados
+  // Ahora se usa DateUtils.formatForDisplay() de manera consistente
 
   private formatPrice(price: number): string {
     return new Intl.NumberFormat('es-AR', {

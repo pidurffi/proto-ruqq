@@ -601,95 +601,224 @@ module-name/
 - **src/common/entities/base.entity.ts** - Entidad base con campos comunes
 - **src/engine/auth/entities/user.entity.ts** - Modelo de autenticación de usuario
 
-## 📅 **CRITICAL: Manejo Correcto de Fechas en DTOs**
+## 📅 **ESTÁNDAR UNIFICADO: Manejo de Fechas en la API**
 
-### **🚨 Problema de Zona Horaria**
-Las fechas en DTOs **DEBEN** seguir el patrón exacto de `DailyRoomRateCreateDto` para evitar problemas de zona horaria.
+### **🎯 Principios Fundamentales:**
+1. **Solo trabajar con strings YYYY-MM-DD** para fechas de negocio
+2. **Nunca usar Date objects** para lógica de negocio (solo para "hoy")
+3. **Ignorar completamente las horas** (solo fechas)
+4. **Evitar problemas de timezone** usando fecha local
+5. **Un solo método por responsabilidad**
 
-### **✅ Patrón CORRECTO (DailyRoomRate):**
-```typescript
-@ApiProperty({
-  description: 'Fecha específica del día',
-  example: '2024-01-01'
-})
-@IsDateString()
-@IsNotEmpty()
-date: Date  // ← Tipo Date, no string
-```
-
-### **❌ Patrón INCORRECTO:**
-```typescript
-// NUNCA hacer esto:
-@IsDateString()
-startDate: string  // ← ❌ Causa problemas de zona horaria
-
-// O esto:
-@Transform(({ value }) => new Date(value + 'T00:00:00.000Z'))
-startDate: Date  // ← ❌ Transformaciones manuales innecesarias
-```
-
-### **🔧 Regla de Oro:**
-- **Tipo**: `Date` (siempre)
-- **Validación**: Solo `@IsDateString()` + `@IsNotEmpty()`
-- **Sin transformaciones manuales** en DTOs
-- **Sin conversiones** en servicios si el DTO ya tiene tipo `Date`
-
-### **✅ Resultado Esperado:**
-- Envío: `"2025-03-01"` → Almacena: `2025-03-01`
-- **NO**: `"2025-03-01"` → Almacena: `2025-02-28` (zona horaria incorrecta)
+### **🔧 REGLA DE ORO: "String in, String out"**
+Todas las fechas de negocio se manejan como strings YYYY-MM-DD desde el input hasta el output.
 
 ---
 
-## ⏰ **CRITICAL: Manejo de Fechas en Iteraciones (Zona Horaria)**
+### **🛠️ DateUtils - Utilidad Centralizada**
 
-### **🚨 Problema de Zona Horaria en Loops**
-Al iterar fechas en servicios (ej: cálculo noche por noche), **NUNCA** usar UTC ya que causa desfase de días por zona horaria local (GMT-3 Argentina).
+**Ubicación**: `/src/common/utils/date.utils.ts`
 
-### **✅ Patrón CORRECTO (QuotesService):**
 ```typescript
-// ✅ CORRECTO - Sin zona horaria
-let currentDate = new Date(checkIn)
-const checkOutDate = new Date(checkOut)
+import { DateUtils } from '../../../common/utils/date.utils'
 
-while (currentDate < checkOutDate) {
-  const dateString = currentDate.toISOString().split('T')[0]
-  const dayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay()
-  
-  // Avanzar al siguiente día
-  currentDate.setDate(currentDate.getDate() + 1)  // ← Local
+// ✅ Obtener fecha actual como string
+const today = DateUtils.getTodayAsString() // "2025-09-25"
+
+// ✅ Validar formato de fecha
+DateUtils.isValidDateString('2025-09-25') // true
+DateUtils.isValidDateString('25/09/2025') // false
+
+// ✅ Comparar fechas string
+DateUtils.compareDateStrings('2025-09-25', '2025-09-26') // -1
+
+// ✅ Calcular noches hoteleras
+DateUtils.calculateNights('2025-09-25', '2025-09-30') // 5
+
+// ✅ Formatear para display
+DateUtils.formatForDisplay('2025-09-25') // '25/09'
+
+// ✅ Validar rango completo
+DateUtils.validateDateRange('2025-09-25', '2025-09-30', {
+  allowToday: true,
+  maxNights: 365,
+  minNights: 1
+})
+
+// ✅ Sumar/restar días
+DateUtils.addDays('2025-09-25', 5)  // '2025-09-30'
+DateUtils.addDays('2025-09-25', -1) // '2025-09-24'
+
+// ✅ Generar rango de fechas
+DateUtils.getDateRange('2025-09-25', '2025-09-28')
+// ['2025-09-25', '2025-09-26', '2025-09-27']
+```
+
+---
+
+### **✅ Patrón CORRECTO para DTOs:**
+
+```typescript
+@ApiProperty({
+  description: 'Fecha de check-in',
+  example: '2025-09-25'
+})
+@IsDateString()
+@IsNotEmpty()
+checkInDate: Date  // ← Tipo Date para compatibilidad con NestJS
+
+@ApiProperty({
+  description: 'Fecha de check-out',
+  example: '2025-09-30'
+})
+@IsDateString()
+@IsNotEmpty()
+checkOutDate: Date
+```
+
+---
+
+### **✅ Patrón CORRECTO para Services:**
+
+```typescript
+import { DateUtils } from '../../../common/utils/date.utils'
+
+@Injectable()
+export class ExampleService {
+  async processReservation(dto: ReservationDto): Promise<void> {
+    // ✅ Convertir a strings inmediatamente
+    const checkIn = dto.checkInDate.toString()
+    const checkOut = dto.checkOutDate.toString()
+
+    // ✅ Validar usando DateUtils
+    DateUtils.validateDateRange(checkIn, checkOut, { allowToday: true })
+
+    // ✅ Cálculos usando DateUtils
+    const nights = DateUtils.calculateNights(checkIn, checkOut)
+
+    // ✅ Formateo usando DateUtils
+    const displayDate = DateUtils.formatForDisplay(checkIn)
+  }
 }
 ```
 
-### **❌ Patrón INCORRECTO:**
-```typescript
-// ❌ INCORRECTO - Con UTC causa desfase
-let currentDate = new Date(checkIn + 'T00:00:00.000Z')  // ← GMT-3 desfase
-const checkOutDate = new Date(checkOut + 'T00:00:00.000Z')
+---
 
-while (currentDate < checkOutDate) {
-  // 2025-03-02 se convierte en 2025-03-01 por zona horaria ❌
-  const dayOfWeek = currentDate.getDay()  // ← Día incorrecto
-  
-  currentDate.setUTCDate(currentDate.getUTCDate() + 1)  // ← UTC problemático
+### **✅ Patrón CORRECTO para Respuestas:**
+
+```typescript
+// ✅ CORRECTO - ResponseDto
+export class QuoteResponseDto {
+  @ApiProperty({
+    description: 'Fecha de check-in',
+    example: '2025-09-25'
+  })
+  checkInDate: string  // ← String en responses
+
+  @ApiProperty({
+    description: 'Fecha de check-out',
+    example: '2025-09-30'
+  })
+  checkOutDate: string
+}
+
+// ✅ En el service
+return {
+  checkInDate: checkIn,  // Ya es string
+  checkOutDate: checkOut, // Ya es string
+  // ... resto de data
 }
 ```
 
-### **🔧 Regla de Oro para Iteraciones:**
-- **Crear fechas**: `new Date(dateString)` (sin 'T00:00:00.000Z')
-- **Iterar días**: `setDate(getDate() + 1)` (no setUTCDate)
-- **Día de semana**: `getDay()` directo (JavaScript local)
-- **PostgreSQL**: Las fechas se guardan correctamente como date sin timezone
+---
 
-### **✅ Resultado Esperado:**
-- **Input**: `"2025-03-02"` (Sábado)
-- **JavaScript**: Sábado (getDay() = 6, ISO = 6) ✅
-- **PostgreSQL**: `2025-03-02` almacenado como date ✅
-- **Price Rule**: Aplica para día 6 (Sábado) ✅
+### **❌ Patrones PROHIBIDOS:**
 
-### **❌ Comportamiento Incorrecto Evitado:**
-- **Input**: `"2025-03-02"` (Sábado)  
-- **JavaScript UTC**: Viernes (getDay() = 5, GMT-3 desfase) ❌
-- **Price Rule**: NO aplica para día 6 ❌
+```typescript
+// ❌ NUNCA usar Date objects en lógica de negocio
+const checkInDate = new Date(checkIn)
+const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24))
+
+// ❌ NUNCA usar múltiples métodos de formateo
+private formatDate1(date: string): string { }
+private formatDate2(date: Date): string { }
+private formatDate3(date: string): string { }
+
+// ❌ NUNCA usar conversiones de timezone manuales
+const userTimezoneOffset = new Date(date).getTimezoneOffset() * 60000
+
+// ❌ NUNCA usar validaciones inline de fecha
+if (checkIn >= checkOut) throw new Error('...')
+
+// ❌ NUNCA crear métodos de fecha duplicados en servicios
+private subtractDays(date: string, days: number): string { }
+private calculateNights(start: string, end: string): number { }
+```
+
+---
+
+### **🔧 Migración de Código Existente:**
+
+```typescript
+// ANTES (problemático):
+private validateDates(checkIn: string, checkOut: string): void {
+  if (checkIn >= checkOut) {
+    throw new BadRequestException('Invalid date range')
+  }
+  if (new Date(checkIn) < new Date()) {
+    throw new BadRequestException('Date in past')
+  }
+}
+
+// AHORA (estándar):
+private validateDates(checkIn: string, checkOut: string): void {
+  DateUtils.validateDateRange(checkIn, checkOut, { allowToday: true })
+}
+
+// ANTES (problemático):
+private formatDate(dateString: string): string {
+  const date = new Date(dateString)
+  return `${date.getDate()}/${date.getMonth() + 1}`
+}
+
+// AHORA (estándar):
+// Eliminado - usar DateUtils.formatForDisplay() directamente
+```
+
+---
+
+### **🧪 Testing del Estándar:**
+
+```typescript
+// Pruebas automáticas para verificar consistencia:
+
+// ✅ Fecha actual permitida
+DateUtils.validateDateRange('2025-09-25', '2025-09-30', { allowToday: true })
+
+// ✅ Fecha pasada rechazada
+expect(() => DateUtils.validateDateRange('2025-09-24', '2025-09-30'))
+  .toThrow('La fecha de check-in no puede ser en el pasado')
+
+// ✅ Cálculo correcto de noches
+expect(DateUtils.calculateNights('2025-09-25', '2025-09-30')).toBe(5)
+
+// ✅ Formateo consistente
+expect(DateUtils.formatForDisplay('2025-09-25')).toBe('25/09')
+```
+
+---
+
+### **📋 Checklist para Nuevos Desarrollos:**
+
+- [ ] ✅ Importar `DateUtils` en lugar de crear métodos propios
+- [ ] ✅ Usar `DateUtils.validateDateRange()` para validaciones
+- [ ] ✅ Usar `DateUtils.calculateNights()` para cálculos hoteleros
+- [ ] ✅ Usar `DateUtils.formatForDisplay()` para mostrar fechas
+- [ ] ✅ Trabajar solo con strings YYYY-MM-DD en lógica de negocio
+- [ ] ✅ Convertir Date objects a strings inmediatamente en services
+- [ ] ❌ Nunca crear métodos de fecha propios
+- [ ] ❌ Nunca usar Date objects para cálculos de negocio
+- [ ] ❌ Nunca manejar timezone manualmente
 
 ---
 
