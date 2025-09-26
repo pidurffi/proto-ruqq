@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsNotEmpty, IsDateString, IsInt, Min, Max } from 'class-validator'
+import { IsNotEmpty, IsDateString, IsInt, Min, Max, IsOptional, IsUUID } from 'class-validator'
 import { UnavailableRoomTypeDto } from './rejection-reason.dto'
 
 /**
@@ -34,6 +34,15 @@ export class QuoteBudgetDto {
   @IsDateString()
   @IsNotEmpty()
   checkOutDate: Date
+
+  @ApiProperty({
+    description: 'ID del template a utilizar (opcional, usa el template por defecto si no se especifica)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    required: false
+  })
+  @IsOptional()
+  @IsUUID()
+  templateId?: string
 }
 
 /**

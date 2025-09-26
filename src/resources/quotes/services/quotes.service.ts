@@ -282,7 +282,7 @@ export class QuotesService {
   }
 
   /**
-   * Generar presupuesto formateado usando template por defecto
+   * Generar presupuesto formateado usando template específico o por defecto
    */
   async generateFormattedQuote(quoteBudgetDto: QuoteBudgetDto): Promise<string> {
     // 1. Obtener cotización básica usando QuoteEngineService
@@ -292,13 +292,22 @@ export class QuotesService {
       throw new BadRequestException('No hay habitaciones disponibles para las fechas seleccionadas')
     }
 
-    // 2. Obtener template por defecto
-    const template = await this.quoteTemplateRepository.findOne({
-      where: { isDefault: true }
-    })
-
-    if (!template) {
-      throw new BadRequestException('No se encontró template por defecto')
+    // 2. Obtener template específico o por defecto
+    let template
+    if (quoteBudgetDto.templateId) {
+      template = await this.quoteTemplateRepository.findOne({
+        where: { id: quoteBudgetDto.templateId }
+      })
+      if (!template) {
+        throw new BadRequestException(`Template con ID ${quoteBudgetDto.templateId} no encontrado`)
+      }
+    } else {
+      template = await this.quoteTemplateRepository.findOne({
+        where: { isDefault: true }
+      })
+      if (!template) {
+        throw new BadRequestException('No se encontró template por defecto')
+      }
     }
 
     // 3. Obtener content blocks de la template en orden
