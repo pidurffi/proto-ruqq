@@ -1,6 +1,50 @@
 # CLAUDE.md
 Este archivo proporciona orientación a Claude Code (claude.ai/code) al trabajar con código en este repositorio.
 
+## 🎯 PROTOCOLO DE PLANIFICACIÓN CRÍTICA (OBLIGATORIO)
+
+**Cuando el usuario solicite planificar, evaluar, o implementar algo nuevo, SIEMPRE seguir este proceso:**
+
+### Paso 1: Análisis del Escenario de Máxima 🚀
+- Describir la solución más completa y robusta
+- Listar TODAS las features, integraciones, validaciones posibles
+- Explicar beneficios técnicos y de negocio
+- Estimar complejidad y tiempo de implementación
+
+### Paso 2: Análisis del Escenario de Mínima ⚡
+- Identificar el MVP funcional (80% beneficio, 20% esfuerzo)
+- Validar qué es REALMENTE necesario AHORA
+- Evaluar si el problema actual justifica la solución completa
+- Considerar alternativas más simples
+
+### Paso 3: Comparación Crítica 📊
+Crear tabla comparativa con:
+- ✅ Ventajas de cada enfoque
+- ❌ Desventajas de cada enfoque
+- ⏱️ Tiempo de implementación
+- 🔧 Complejidad de mantenimiento
+- 💡 Costo/Beneficio real
+
+### Paso 4: Recomendación Fundamentada 💎
+- Recomendar cuál es apropiado **para el contexto actual**
+- Justificar técnicamente la decisión
+- Señalar si es optimización prematura
+- Proponer path incremental si aplica
+
+### Paso 5: Validación con el Usuario ❓
+- **NUNCA implementar automáticamente**
+- Presentar el análisis completo
+- Preguntar explícitamente qué enfoque prefiere
+- Usar ExitPlanMode cuando corresponda
+
+**⚠️ ANTI-PATRONES A EVITAR:**
+- ❌ Ir directo a la solución de máxima sin validar necesidad
+- ❌ Asumir que "más features = mejor"
+- ❌ No cuestionar si el problema justifica la complejidad
+- ❌ Implementar sin consenso explícito del usuario
+
+---
+
 ## Resumen del Proyecto
 Este es "Ruqq" - Un sitema de generador de presupuestos y reservas para hoteles, basado en boiler-00, una API basada en NestJS construida con TypeORM, PostgreSQL y autenticación JWT. La base de código sigue una arquitectura modular con herramientas personalizadas de generación de código.
 

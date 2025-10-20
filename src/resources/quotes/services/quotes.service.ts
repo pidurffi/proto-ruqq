@@ -319,41 +319,54 @@ export class QuotesService {
       ORDER BY qtb.sort_order ASC
     `, [template.id])
 
-    // 4. Obtener room types con descripciones
-    const roomTypesWithDetails = await this.dataSource.query(`
-      SELECT id, name, code, description, area_m2, base_capacity
-      FROM room_type
-      WHERE deleted_at IS NULL
-    `)
-
-    // 5. Generar contenido formateado
-    let formattedQuote = ''
-
-    // REFACTORIZADO: Usar DateUtils para formateo consistente
+    // 4. Preparar variables globales para reemplazo
     const checkInFormatted = DateUtils.formatForDisplay(quote.checkInDate)
     const checkOutFormatted = DateUtils.formatForDisplay(quote.checkOutDate)
-
-    // REFACTORIZADO: Usar DateUtils para cálculo consistente
     const totalNights = DateUtils.calculateNights(quote.checkInDate, quote.checkOutDate)
 
-    // Para cada room type disponible, generar su descripción
-    for (const roomTypeQuote of quote.available) {
-      const roomDetails = roomTypesWithDetails.find((rt: any) => rt.id === roomTypeQuote.roomType.id)
-      if (!roomDetails) continue
+    const globalVariables = {
+      checkIn: checkInFormatted,
+      checkOut: checkOutFormatted,
+      totalNights: totalNights,
+      pax: quoteBudgetDto.pax
+    }
 
+    let formattedQuote = ''
+
+    // 5. Generar contenido de room types disponibles usando variables
+    for (const roomTypeQuote of quote.available) {
       const ratePlan = roomTypeQuote.ratePlans[0]
       if (!ratePlan) continue
 
-      // Formato específico que pediste
-      formattedQuote += `Del ${checkInFormatted} al ${checkOutFormatted}, ${totalNights} noches, para ${quoteBudgetDto.pax}/4 personas:\n`
-      formattedQuote += `▷${roomDetails.name}, 2 ambientes, ${roomDetails.area_m2}m²\n`
-      formattedQuote += `${roomDetails.description} : $${this.formatPrice(ratePlan.totalPrice)}\n\n`
+      // Variables específicas del room type
+      const roomTypeVariables = {
+        ...globalVariables,
+        roomTypeName: roomTypeQuote.roomType.name,
+        roomTypeCode: roomTypeQuote.roomType.code,
+        baseCapacity: roomTypeQuote.roomType.baseCapacity,
+        maxCapacity: roomTypeQuote.roomType.maxCapacity,
+        totalPrice: this.formatPrice(ratePlan.totalPrice),
+        averageNightlyRate: this.formatPrice(ratePlan.averageNightlyRate)
+      }
+
+      // Buscar content block GREETING para room types (si existe)
+      const greetingBlock = templateBlocks.find((block: any) => block.type === 'GREETING')
+      if (greetingBlock) {
+        const processedGreeting = this.replaceVariables(greetingBlock.content, roomTypeVariables)
+        formattedQuote += `${processedGreeting}\n\n`
+      } else {
+        // Fallback: usar formato hardcodeado si no hay GREETING block
+        formattedQuote += `Del ${checkInFormatted} al ${checkOutFormatted}, ${totalNights} noches, para ${quoteBudgetDto.pax} personas:\n`
+        formattedQuote += `▷${roomTypeQuote.roomType.name}, habitación completa\n`
+        formattedQuote += `Precio total: $${this.formatPrice(ratePlan.totalPrice)}\n\n`
+      }
     }
 
-    // Agregar los content blocks restantes
+    // 6. Agregar content blocks restantes (no GREETING) con variables globales
     for (const block of templateBlocks) {
-      if (block.type !== 'GREETING') { // El greeting ya se procesó arriba
-        formattedQuote += `${block.content}\n\n`
+      if (block.type !== 'GREETING') {
+        const processedContent = this.replaceVariables(block.content, globalVariables)
+        formattedQuote += `${processedContent}\n\n`
       }
     }
 
@@ -368,5 +381,27 @@ export class QuotesService {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(price)
+  }
+
+  /**
+   * Motor de reemplazo de variables {{ }} en content blocks
+   */
+  private replaceVariables(content: string, variables: Record<string, any>): string {
+    console.log('🔧 [replaceVariables] Content:', content.substring(0, 100))
+    console.log('🔧 [replaceVariables] Variables:', variables)
+
+    let result = content
+
+    // Reemplazar todas las variables {{ variableName }}
+    for (const [key, value] of Object.entries(variables)) {
+      // Escapar caracteres especiales en regex y crear patrón más simple
+      const pattern = `{{${key}}}`
+      const regex = new RegExp(pattern.replace(/[{}]/g, '\\$&'), 'g')
+      console.log(`🔧 [replaceVariables] Replacing ${pattern} with ${value}`)
+      result = result.replace(regex, String(value))
+    }
+
+    console.log('🔧 [replaceVariables] Result:', result.substring(0, 100))
+    return result
   }
 }
