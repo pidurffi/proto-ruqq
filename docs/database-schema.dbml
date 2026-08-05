@@ -1,0 +1,224 @@
+// =============================================================================
+// Ruqq — esquema de base de datos
+// Pegar en https://dbdiagram.io para ver el diagrama
+//
+// Generado a partir de las migraciones de src/engine/migrations/.
+// Actualizar este archivo cada vez que se agregue una migración.
+// =============================================================================
+
+Project ruqq {
+  database_type: 'PostgreSQL'
+  Note: '''
+  Modelo de calendario diario (estándar OTA).
+
+  Un registro por combinación (room_type, rate_plan, date), igual que las APIs de
+  Booking.com, Airbnb y Expedia. La cotización se resuelve con un simple
+  WHERE date BETWEEN checkIn AND checkOut-1.
+
+  Multi-tenant por schema de PostgreSQL: estas tablas se replican en el schema
+  de cada hotel. El schema `public` se usa para desarrollo y demo.
+
+  Todas las tablas heredan de EntityBase: id, uid (usuario que creó),
+  created_at, updated_at y deleted_at (soft delete).
+  '''
+}
+
+// =============================================================================
+// INVENTARIO
+// =============================================================================
+
+Table room_type {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  uid uuid [not null]
+  name varchar(100) [not null]
+  code varchar(10) [unique, not null, note: 'Código corto: LUX, PRE, SUP, EST, SUI']
+  total_inventory integer [not null, default: 1, note: 'Habitaciones físicas de este tipo']
+  base_capacity integer [not null, note: 'Ocupación incluida en el precio estándar']
+  max_capacity integer [not null, note: 'Límite máximo de personas']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+// =============================================================================
+// PLANES TARIFARIOS
+// =============================================================================
+
+Table rate_plans {
+  id varchar [pk, not null, default: `uuid_generate_v4()`, note: 'ATENCIÓN: varchar, no uuid. Ver docs/ESTADO.md §14']
+  uid varchar [not null, default: `uuid_generate_v4()`]
+  name varchar(100) [not null]
+  code varchar(20) [unique, not null, note: 'BAR, NRF, ADV7, BB, RO…']
+  description text
+
+  is_refundable boolean [not null, default: true]
+  advance_purchase_days integer [note: 'Anticipación mínima para reservar']
+  included_services varchar(100) [note: 'breakfast, dinner, spa_access…']
+
+  parent_rate_plan_id varchar [note: 'Plan del que deriva. DECLARADO PERO NO IMPLEMENTADO']
+  parent_adjustment_percent decimal(5,2) [note: 'Ajuste % sobre el padre. NO IMPLEMENTADO']
+
+  default_min_stay integer
+  default_max_stay integer
+  cancellation_deadline_hours integer
+  cancellation_penalty_type varchar(20) [note: 'PERCENTAGE, FIXED_AMOUNT, FIRST_NIGHT, FULL_STAY']
+  cancellation_penalty_value decimal(10,2)
+
+  is_active boolean [not null, default: true]
+  display_order integer [not null, default: 0]
+  booking_engine_code varchar(50) [note: 'Integración con channel managers']
+  created_by_source varchar(50) [note: 'manual, channel_manager, api_import']
+
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+
+  Indexes {
+    code [unique, name: 'idx_rate_plans_code']
+    is_active [name: 'idx_rate_plans_active']
+    parent_rate_plan_id [name: 'idx_rate_plans_parent']
+  }
+}
+
+// =============================================================================
+// ENTIDAD CENTRAL — CALENDARIO DIARIO
+// =============================================================================
+
+Table daily_room_rates {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  uid uuid [not null]
+  room_type_id uuid [not null]
+  rate_plan_id varchar [not null, note: 'ATENCIÓN: varchar, no uuid. Ver docs/ESTADO.md §14']
+  date date [not null, note: 'UN REGISTRO POR DÍA — estándar OTA']
+
+  base_rate decimal(10,2) [not null, note: 'Precio de la noche para la capacidad base']
+  single_occupancy_rate decimal(10,2) [note: 'Precio para 1 persona. NO LO LEE EL MOTOR']
+  extra_person_rate decimal(10,2) [note: 'Adicional por persona extra. NO LO LEE EL MOTOR']
+
+  available_rooms integer [not null, default: 0, note: 'Inventario del día. NO LO VERIFICA EL MOTOR']
+  is_active boolean [not null, default: true, note: 'Día vendible']
+
+  min_stay integer [note: 'NO LO EVALÚA EL MOTOR']
+  max_stay integer [note: 'NO LO EVALÚA EL MOTOR']
+  closed_to_arrival boolean [not null, default: false, note: 'CTA. NO LO EVALÚA EL MOTOR']
+  closed_to_departure boolean [not null, default: false, note: 'CTD. NO LO EVALÚA EL MOTOR']
+
+  last_updated_by uuid
+  pricing_source varchar(50) [note: 'manual, channel_manager, dynamic_pricing, api_update']
+
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+
+  Indexes {
+    (room_type_id, rate_plan_id, date) [unique, name: 'idx_daily_rates_main']
+    (date, is_active) [name: 'idx_daily_rates_date_active']
+    (room_type_id, date, available_rooms) [name: 'idx_daily_rates_availability']
+    rate_plan_id [name: 'idx_daily_rates_rate_plan']
+  }
+}
+
+// =============================================================================
+// RESTRICCIONES — TABLA REMANENTE DEL MODELO ANTERIOR
+// =============================================================================
+
+Table restrictions {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  uid uuid [not null]
+  room_type_id uuid [not null]
+  start_date date [not null]
+  end_date date [not null]
+  min_length_of_stay integer
+  max_length_of_stay integer
+  closed_to_arrival boolean [not null, default: false]
+  closed_to_departure boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+
+  Note: '''
+  REMANENTE del modelo v2.3. Duplica min_stay, max_stay, closed_to_arrival y
+  closed_to_departure, que hoy viven dentro de daily_room_rates.
+  El motor de cotización NO lee esta tabla. Ver docs/ESTADO.md §8.
+  '''
+}
+
+// =============================================================================
+// PLANTILLAS DE PRESUPUESTO
+// =============================================================================
+
+Table quote_template {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  uid uuid [not null]
+  name varchar(255) [not null]
+  is_default boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Table content_block {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  uid uuid [not null]
+  name varchar(255) [not null]
+  content text [not null, note: 'Admite variables {{nombre}}']
+  type content_block_type [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+Enum content_block_type {
+  GREETING
+  SERVICES
+  TERMS
+  CANCELLATION_POLICY
+  FOOTER
+  GENERAL_INFO
+}
+
+Table quote_template_block {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  uid uuid [not null]
+  quote_template_id uuid [not null]
+  content_block_id uuid [not null]
+  sort_order integer [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+// =============================================================================
+// USUARIOS
+// =============================================================================
+
+Table users {
+  id uuid [pk, not null, default: `uuid_generate_v4()`]
+  uid uuid [not null]
+  email text [unique, not null]
+  password text [not null, note: 'Hash bcrypt']
+  full_name text [not null]
+  is_active boolean [not null, default: true]
+  roles "text[]" [not null, default: `'{user}'`, note: 'SUPER_ADMIN, ADMIN, USER, GUEST']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+  deleted_at timestamp
+}
+
+// =============================================================================
+// RELACIONES
+// =============================================================================
+
+Ref: room_type.id < daily_room_rates.room_type_id [delete: restrict]
+Ref: rate_plans.id < daily_room_rates.rate_plan_id [delete: cascade]
+Ref: rate_plans.id < rate_plans.parent_rate_plan_id [delete: set null]
+Ref: room_type.id < restrictions.room_type_id [delete: restrict]
+Ref: quote_template.id < quote_template_block.quote_template_id [delete: cascade]
+Ref: content_block.id < quote_template_block.content_block_id [delete: cascade]
+
+// =============================================================================
+// NO EXISTE TABLA DE COTIZACIONES
+//
+// La tabla `quotes` fue eliminada en el refactor de septiembre 2025. Las
+// cotizaciones se calculan al vuelo y no se persisten. Ver docs/ARQUITECTURA.md §2.3.
+// =============================================================================
