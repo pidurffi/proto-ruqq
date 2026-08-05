@@ -24,8 +24,8 @@ curl http://localhost:3001/api/room-type \
   -H "X-Tenant-ID: tenant_cliente1"
 ```
 
-> Antes de usar más de un tenant en paralelo, leer [ESTADO.md](ESTADO.md) §1: el contexto de tenant
-> se guarda en un singleton y se pisa entre requests concurrentes.
+El contexto queda aislado por request mediante `AsyncLocalStorage`, así que las consultas
+concurrentes de distintos hoteles no se interfieren.
 
 ### Autenticación
 
@@ -40,7 +40,7 @@ En las tablas que siguen:
 | ✅ | implementado y verificado contra el fuente |
 | ⚠️ | implementado con limitaciones documentadas |
 | ❌ | **stub**: responde, pero no hace lo que dice |
-| 🔓 | **sin autenticación**, y debería tenerla |
+| 🔒 | requiere JWT con rol `SUPER_ADMIN` |
 
 ---
 
@@ -186,22 +186,21 @@ Igual que el anterior, pero con `templateId` obligatorio. Requiere JWT.
 
 ---
 
-## Tarifas diarias 🔓
+## Tarifas diarias 🔒
 
-**Ningún endpoint de esta sección tiene guard.** Son públicos y permiten reescribir los precios del
-hotel. Ver [ESTADO.md](ESTADO.md) §2 — es lo primero que hay que arreglar.
+Todos los endpoints de esta sección exigen JWT con rol `SUPER_ADMIN`.
 
 Base: `/api/daily-room-rates`
 
 | Método | Ruta | Descripción | Estado |
 |---|---|---|---|
-| GET | `/rates/period` | tarifas de un rango | 🔓 |
-| POST | `/rates/bulk` | carga masiva sobre un rango de fechas | 🔓 |
-| POST | `/rates/single` | tarifa de un día puntual | 🔓 |
-| PUT | `/rates/:roomTypeId/:date/availability` | actualiza el inventario de un día | 🔓 |
-| GET | `/rates/:roomTypeId/missing-dates` | días sin tarifa cargada | 🔓 |
-| POST | `/rates/:roomTypeId/fill-missing` | completa los días faltantes | 🔓 |
-| GET | `/rates/:roomTypeId/stats` | estadísticas de precios | 🔓 |
+| GET | `/rates/period` | tarifas de un rango | 🔒 ✅ |
+| POST | `/rates/bulk` | carga masiva sobre un rango de fechas | 🔒 ✅ |
+| POST | `/rates/single` | tarifa de un día puntual | 🔒 ✅ |
+| PUT | `/rates/:roomTypeId/:date/availability` | actualiza el inventario de un día | 🔒 ✅ |
+| GET | `/rates/:roomTypeId/missing-dates` | días sin tarifa cargada | 🔒 ✅ |
+| POST | `/rates/:roomTypeId/fill-missing` | completa los días faltantes | 🔒 ✅ |
+| GET | `/rates/:roomTypeId/stats` | estadísticas de precios | 🔒 ✅ |
 
 ### `POST /rates/bulk`
 
@@ -219,11 +218,12 @@ Base: `/api/daily-room-rates`
 | `dayOfWeekFilter` | int[] | opcional — **0=domingo … 6=sábado** |
 
 No lleva `ratePlanId`: si se omite, el servicio resuelve el plan por defecto
-(`getDefaultRatePlanId()`).
+(`getDefaultRatePlanId()`). Tampoco lleva `userId`: el `uid` de auditoría sale del token.
 
 ```bash
 # Cargar $150 la noche para todo julio, sólo viernes y sábados
 curl -X POST http://localhost:3001/api/daily-room-rates/rates/bulk \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "roomTypeId": "<uuid>",
@@ -252,12 +252,9 @@ CRUD estándar: `GET /`, `GET /:id`, `POST /`, `PATCH /:id`, `DELETE /:id`.
 | `totalInventory` | |
 | `baseCapacity` / `maxCapacity` | |
 
-### Planes tarifarios — `/api/rate-plan` ⚠️
+### Planes tarifarios — `/api/rate-plan` ✅
 
-Mismo CRUD estándar.
-
-> **Los guards de `GET /` y `POST /` están comentados** con la nota *"TEMPORAL: Comentado para
-> testing"* (`rate-plan.controller.ts:59` y `:89`). Esas dos rutas son públicas hoy.
+Mismo CRUD estándar, con JWT y rol `SUPER_ADMIN` en las cinco rutas.
 
 Campos relevantes: `name`, `code` (único), `description`, `isRefundable`, `advancePurchaseDays`,
 `includedServices`, `defaultMinStay`, `defaultMaxStay`, `cancellationDeadlineHours`,
@@ -362,4 +359,4 @@ curl http://localhost:3001/api/room-type \
   -H "X-Tenant-ID: tenant_cliente1"
 ```
 
-Hacer esta verificación **en serie**. En paralelo puede fallar por el defecto de §1.
+Esta verificación también vale en paralelo: el contexto de tenant está aislado por request.

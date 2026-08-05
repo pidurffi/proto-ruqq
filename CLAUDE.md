@@ -133,11 +133,11 @@ Y el módulo los registra:
 **Módulos con tenant provider hoy:** `daily-room-rates`, `rate-plan`, `room-type`, `restrictions`,
 `content-block`, `quote-template`, `quote-template-block` y `auth`/`users`.
 
-> El contexto de tenant tiene un defecto de concurrencia sin resolver
-> ([docs/ESTADO.md](docs/ESTADO.md) §1). Al escribir código nuevo, leer el tenant **siempre** a
-> través de `tenantService.getActiveTenant()` y nunca cachearlo en una variable de instancia: cuando
-> se migre a `AsyncLocalStorage`, el código que respete esta regla va a seguir funcionando sin
-> cambios.
+> **Leer el tenant siempre con `tenantService.getActiveTenant()`, en el momento de ejecutar la
+> consulta.** Nunca cachearlo en un campo de instancia, una variable de módulo ni una propiedad del
+> repositorio. El contexto vive en un `AsyncLocalStorage` por request; `TenantService` es un
+> singleton, y cachear el tenant vuelve a introducir exactamente la fuga de datos entre hoteles que
+> ya ocurrió una vez ([docs/ESTADO.md](docs/ESTADO.md) §1).
 
 ---
 
@@ -249,8 +249,16 @@ Todo endpoint que escriba o exponga datos del hotel lleva:
 Las únicas rutas legítimamente públicas son las de cotización (`/api/quotes/*`) y las de
 autenticación.
 
-**No comentar guards "temporalmente para testing".** Ya pasó: en `rate-plan.controller.ts` llevan
-diez meses comentados, y el controller de `daily-room-rates` quedó sin proteger
+**Van por handler, no a nivel de clase.** `UserRoleGuard` lee el metadato con
+`reflector.get(META_ROLES, context.getHandler())`: un `@RoleProtected` puesto en la clase es
+invisible para el guard, que al no encontrar roles hace `return true` y deja pasar a cualquier
+usuario autenticado.
+
+**El `uid` de auditoría sale del token, nunca del body.** Usar `@GetUser() user: User` y `user.id`.
+Aceptarlo por body permite que el cliente firme sus cambios con la identidad de otro.
+
+**No comentar guards "temporalmente para testing".** Ya pasó: quedaron diez meses comentados en
+`rate-plan.controller.ts` y el controller de `daily-room-rates` directamente sin proteger
 ([docs/ESTADO.md](docs/ESTADO.md) §2). Para probar sin token, generar uno con el seeder.
 
 ---
@@ -308,10 +316,12 @@ Para trazas de diagnóstico, nivel `debug`.
 |---|---|
 | `@InjectRepository()` o `TypeOrmModule.forFeature()` | rompe el patrón de repositorios personalizados |
 | Módulo nuevo sin `*-tenant.providers.ts` | filtra datos entre hoteles |
-| Cachear el tenant en una variable de instancia | bloquea la migración a `AsyncLocalStorage` |
+| Cachear el tenant fuera de `getActiveTenant()` | rompe el aislamiento por request |
+| Tomar el `uid` del body en vez del token | permite suplantar identidad en la auditoría |
 | `string` para fechas en DTOs, o UTC en iteraciones | desfase de un día en GMT-3 |
 | Crear entidades, DTOs o módulos a mano | usar `npm run create-engine` |
-| Comentar guards "temporalmente" | ya hay endpoints de precios sin proteger |
+| Comentar guards "temporalmente" | ya dejó el CRUD de precios público diez meses |
+| `@RoleProtected` a nivel de clase | el guard sólo lo lee del handler |
 | Devolver `success: true` desde un stub | ya hay un endpoint que miente |
 | `console.log` en código de producción | usar Winston |
 | `PG_DB_SYNCHRONIZE=true` | el esquema se versiona con migraciones |

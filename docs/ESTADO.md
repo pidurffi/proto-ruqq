@@ -13,9 +13,9 @@ implementado y es coherente; alrededor hay deuda que impide ponerlo en producci�
 |---|---|
 | Modelo de datos | Sólido. Calendario diario estándar OTA, bien indexado |
 | Motor de cotización | Funciona, pero incompleto y **duplicado** |
-| Multi-tenancy | Implementado, con un **defecto crítico de concurrencia** |
+| Multi-tenancy | Implementado, con aislamiento por request vía `AsyncLocalStorage` |
 | Presupuestos formateados | Funciona (plantillas + variables) |
-| Autenticación | JWT + RBAC implementados, pero **el CRUD de precios quedó sin proteger** |
+| Autenticación | JWT + RBAC en todos los endpoints de administración |
 | Edición masiva de calendario | **Stub** que responde `success: true` sin escribir |
 | Testing | **Inexistente** — no hay framework instalado |
 | Documentación | Reescrita en esta pasada |
@@ -26,11 +26,19 @@ implementado y es coherente; alrededor hay deuda que impide ponerlo en producci�
 
 ## Bloqueantes para producción
 
-### 1. CRÍTICO — Fuga de datos entre tenants
+Los dos problemas de seguridad (§1 y §2) **ya están corregidos**; se conserva el diagnóstico
+porque explica el porqué de las reglas que quedaron. El resto sigue abierto.
 
-**Dónde:** `src/common/services/tenant.service.ts:15`
+### 1. ~~CRÍTICO — Fuga de datos entre tenants~~ ✅ RESUELTO
 
-`TenantService` es un provider **singleton** de NestJS que guarda el tenant activo en un campo
+> **Corregido.** El contexto de tenant pasó a `AsyncLocalStorage`
+> (`src/common/context/tenant-context.ts`). Se conserva el diagnóstico porque explica por qué el
+> código quedó como quedó, y porque la regla que se desprende sigue vigente: **nunca cachear el
+> tenant en un campo de instancia**.
+
+**Dónde estaba:** `src/common/services/tenant.service.ts:15`
+
+`TenantService` es un provider **singleton** de NestJS y guardaba el tenant activo en un campo
 mutable de instancia:
 
 ```typescript
@@ -39,9 +47,9 @@ export class TenantService implements ITenantService {
   private currentTenant: ITenantContext | null = null;   // ← estado compartido
 ```
 
-`TenantMiddleware` lo escribe en cada request (`tenant.middleware.ts:70`) y los proxies de los
-repositorios lo leen cuando ejecutan la consulta. No existe `Scope.REQUEST` ni `AsyncLocalStorage`
-en ninguna parte del proyecto (verificado por búsqueda global).
+`TenantMiddleware` lo escribía en cada request y los proxies de los repositorios lo leían al
+ejecutar la consulta. No existía `Scope.REQUEST` ni `AsyncLocalStorage` en ninguna parte del
+proyecto.
 
 **Cómo falla.** Node.js atiende requests concurrentes sobre el mismo event loop:
 
@@ -56,41 +64,50 @@ t4  Request A ejecuta SET search_path TO tenant_hotelB
 El hotel A recibe datos del hotel B. Con un solo tenant activo el bug es invisible; aparece con
 tráfico real, que es exactamente cuando más caro sale.
 
-**Solución.** `AsyncLocalStorage` de `node:async_hooks`, que propaga contexto a través de la cadena
-de `await` sin acoplar los servicios. El middleware abre el scope y todo lo que ocurra dentro lo
-hereda:
+Había un agravante: el middleware limpiaba el contexto desde `res.on('finish')`. O sea que la
+request que terminaba primero **borraba el contexto de las que seguían en vuelo**, y esas caían
+silenciosamente al tenant por defecto.
+
+**Cómo se resolvió.** `AsyncLocalStorage` de `node:async_hooks`, que propaga contexto a través de la
+cadena de `await` sin acoplar los servicios. El middleware abre el scope y todo lo que ocurra dentro
+lo hereda:
 
 ```typescript
-// tenant-context.ts
+// src/common/context/tenant-context.ts
 export const tenantStorage = new AsyncLocalStorage<ITenantContext>()
 
-// tenant.middleware.ts
-use(req, res, next) {
-  const context = this.resolveTenant(req)
-  tenantStorage.run(context, () => next())
-}
+// src/common/middleware/tenant.middleware.ts
+this.tenantService.runWithTenant(tenantContext, () => next())
 
-// tenant.service.ts
-getActiveTenant(): ITenantContext {
-  return tenantStorage.getStore() ?? this.getDefaultTenant()
+// src/common/services/tenant.service.ts
+getCurrentTenant(): ITenantContext | null {
+  return tenantStorage.getStore() ?? null
 }
 ```
 
-La alternativa —marcar los providers como `Scope.REQUEST`— también resuelve el problema, pero
-propaga el scope a todo el árbol de dependencias y degrada el rendimiento. `AsyncLocalStorage` es la
-solución correcta.
+Se usa `run()` y no `enterWith()` de forma deliberada: acota el contexto al callback y lo libera
+cuando la cadena termina, sin limpieza manual. Se eliminaron `setCurrentTenant()` y
+`clearCurrentTenant()` de `ITenantService`, reemplazados por `runWithTenant()`.
 
-**Esto se arregla antes que cualquier otra cosa.** Todo lo demás de esta lista puede convivir con un
-prototipo; esto no.
+La alternativa —marcar los providers como `Scope.REQUEST`— también resolvía el problema, pero
+propaga el scope a todo el árbol de dependencias y degrada el rendimiento.
+
+Los repositorios tenant-aware no necesitaron cambios: ya leían el tenant vía `getActiveTenant()` en
+el momento de ejecutar la consulta, que es exactamente lo que hace falta para que `AsyncLocalStorage`
+resuelva bien.
 
 ---
 
-### 2. CRÍTICO — El CRUD de precios está sin autenticar
+### 2. ~~CRÍTICO — El CRUD de precios está sin autenticar~~ ✅ RESUELTO
 
-**Dónde:** `src/resources/daily-room-rates/controllers/daily-room-rates.controller.ts`
+> **Corregido.** Los siete endpoints exigen JWT con rol `SUPER_ADMIN`, igual que el resto de la
+> administración. Se reactivaron además los dos guards comentados de `rate-plan` y se eliminó el uso
+> de usuarios mock.
 
-El controller de tarifas diarias **no tiene un solo `@UseGuards` ni `@RoleProtected`**. Sus siete
-endpoints son públicos:
+**Dónde estaba:** `src/resources/daily-room-rates/controllers/daily-room-rates.controller.ts`
+
+El controller de tarifas diarias **no tenía un solo `@UseGuards` ni `@RoleProtected`**. Sus siete
+endpoints eran públicos:
 
 | Endpoint | Qué permite a un anónimo |
 |---|---|
@@ -100,20 +117,32 @@ endpoints son públicos:
 | `POST /api/daily-room-rates/rates/:roomTypeId/fill-missing` | generar tarifas masivamente |
 | `GET /api/daily-room-rates/rates/period` y `/stats` | leer toda la estructura de precios del hotel |
 
-Cualquiera con la URL puede poner el hotel entero a $1 la noche, o leer la política de precios de la
-competencia. El resto de los módulos de administración (`room-type`, `rate-plan`, `restrictions`,
-`content-block`, `quote-template`, `price-matrix`, `calendar`) sí exigen JWT con rol `SUPER_ADMIN`;
-este quedó afuera.
+Cualquiera con la URL podía poner el hotel entero a $1 la noche, o leer la política de precios de la
+competencia.
 
-Se arregla aplicando el mismo par de decoradores que usan los demás controllers:
+**Cómo se resolvió.** El mismo par de decoradores que usan los demás controllers, aplicado a cada
+handler:
 
 ```typescript
 @RoleProtected(ValidRoles.SUPER_ADMIN)
 @UseGuards(AuthGuard(), UserRoleGuard)
 ```
 
-**Relacionado:** en `rate-plan.controller.ts:59` y `:89` los guards de `GET /` y `POST /` están
-comentados con la nota *"TEMPORAL: Comentado para testing"*. Lo temporal lleva diez meses.
+Van **por handler y no a nivel de clase** por una razón concreta: `UserRoleGuard` lee el metadato con
+`this.reflector.get(META_ROLES, context.getHandler())`, sólo del handler. Un `@RoleProtected` puesto
+en la clase quedaría invisible para el guard, que al no encontrar roles hace `return true` — o sea,
+dejaría pasar a cualquier usuario autenticado. Si algún día se refactoriza a `getAllAndOverride`, se
+podrá subir a nivel de clase; hasta entonces, no.
+
+**Dos arreglos que vinieron con este:**
+
+- `rate-plan.controller.ts`: se reactivaron los guards de `GET /` y `POST /`, comentados hacía diez
+  meses con la nota *"TEMPORAL: Comentado para testing"*.
+- Se eliminaron los usuarios mock. Los tres handlers de escritura de `daily-room-rates` tomaban el
+  `userId` **del body** (`@Body('userId') userId: string = 'temp-user-id'`) y `rate-plan` usaba
+  `'test-user-id'` fijo. Ahora sale del token vía `@GetUser()`. Además de dejar basura en la
+  auditoría, aceptar el `uid` desde el body permitía que el cliente firmara sus cambios con la
+  identidad de otro.
 
 ---
 
@@ -336,12 +365,9 @@ con rotación diaria: hay que usarlo, con nivel `debug`.
 
 ## Orden de trabajo sugerido
 
-Los dos primeros puntos son de seguridad y se resuelven en horas. No hay razón para postergarlos.
+~~1. Proteger el CRUD de `daily-room-rates` (§2).~~ ✅ hecho
+~~2. `AsyncLocalStorage` para el contexto de tenant (§1).~~ ✅ hecho
 
-1. **Proteger el CRUD de `daily-room-rates`** y descomentar los guards de `rate-plan` (§2). Son dos
-   decoradores; hoy cualquiera puede reescribir los precios del hotel.
-2. **`AsyncLocalStorage` para el contexto de tenant** (§1). Bloqueante absoluto: sin esto, no se
-   pone un segundo hotel en el sistema.
 3. **Instalar Jest y cubrir `DateUtils` y el motor** (§6). Sin red de seguridad no se toca el resto.
 4. **Unificar los dos motores en uno** (§5), tomando la cobertura de rate plans de uno y la de
    restricciones del otro.

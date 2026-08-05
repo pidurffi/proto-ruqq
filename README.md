@@ -24,9 +24,10 @@ Cada hotel vive aislado en su propio schema de PostgreSQL, seleccionado por el h
 
 > ### Estado: prototipo funcional
 >
-> El núcleo está implementado y es coherente, pero hay deuda que impide llevarlo a producción —
-> incluidos **dos problemas de seguridad** que se resuelven en horas. Antes de desplegar esto en
-> cualquier lado, leer **[docs/ESTADO.md](docs/ESTADO.md)**.
+> El núcleo está implementado y es coherente. Los dos problemas de seguridad detectados en la
+> auditoría ya están corregidos, pero queda deuda que impide llevarlo a producción: el motor de
+> cotización está duplicado e incompleto, no hay tests y algún endpoint es un stub. Antes de
+> desplegar esto en cualquier lado, leer **[docs/ESTADO.md](docs/ESTADO.md)**.
 
 ---
 

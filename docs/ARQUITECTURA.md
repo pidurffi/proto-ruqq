@@ -229,16 +229,15 @@ Se complementan con `database/setup-multitenant.sql` y los scripts
 `scripts/setup-multitenant-system.ts` y `scripts/setup-complete.ts`. El directorio `nginx/` incluye
 una configuración de ejemplo que inyecta el header `X-Tenant-ID` según el subdominio.
 
-### 3.3 Dos defectos que hay que conocer antes de tocar esto
+### 3.3 Reglas al tocar esto
 
-> **Estado de tenant compartido entre requests.** `TenantService` es un provider **singleton** que
-> guarda el tenant activo en un campo mutable de instancia (`private currentTenant`,
-> `src/common/services/tenant.service.ts:15`). No hay `Scope.REQUEST` ni `AsyncLocalStorage` en
-> ninguna parte del proyecto. Con dos requests concurrentes de tenants distintos, la segunda pisa el
-> contexto de la primera mientras esta espera su consulta. **Es una fuga de datos entre hoteles.**
-> Detalle y solución en [ESTADO.md](ESTADO.md) §1.
+> **Nunca cachear el tenant.** El contexto vive en un `AsyncLocalStorage`
+> (`src/common/context/tenant-context.ts`) y se lee siempre con `getActiveTenant()`, **en el momento
+> de ejecutar la consulta**. Guardarlo en un campo de instancia o en una variable de módulo rompe el
+> aislamiento: `TenantService` es un singleton, y así fue precisamente como el sistema tuvo una fuga
+> de datos entre hoteles ([ESTADO.md](ESTADO.md) §1).
 
-> **Lista de tenants hardcodeada.** Los tenants válidos son un `Set` literal en el código
+> **Lista de tenants hardcodeada. Los tenants válidos son un `Set` literal en el código
 > (`src/common/services/tenant.service.ts:18`). Dar de alta un hotel exige editar el fuente y
 > redesplegar. El propio comentario lo reconoce: *"en producción esto vendría de BD"*.
 
