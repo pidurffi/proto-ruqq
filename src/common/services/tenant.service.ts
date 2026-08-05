@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { tenantStorage } from '../context/tenant-context';
 import { ITenantContext, ITenantService } from '../interfaces/tenant.interface';
 
 export interface ITenantListItem {
@@ -12,8 +13,7 @@ export interface ITenantListItem {
 @Injectable()
 export class TenantService implements ITenantService {
   private readonly logger = new Logger(TenantService.name);
-  private currentTenant: ITenantContext | null = null;
-  
+
   // Lista de tenants válidos - en producción esto vendría de BD
   private readonly validTenants = new Set([
     'default',
@@ -30,16 +30,28 @@ export class TenantService implements ITenantService {
     private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * Tenant de la request en curso.
+   *
+   * Se lee de AsyncLocalStorage, no de un campo de instancia: este servicio es
+   * un singleton y un campo compartido haría que las requests concurrentes se
+   * pisen el contexto entre sí. Ver src/common/context/tenant-context.ts.
+   *
+   * Devuelve null fuera de una request (seeders, scripts, tareas programadas).
+   */
   getCurrentTenant(): ITenantContext | null {
-    return this.currentTenant;
+    return tenantStorage.getStore() ?? null;
   }
 
-  setCurrentTenant(context: ITenantContext): void {
-    this.currentTenant = context;
-  }
-
-  clearCurrentTenant(): void {
-    this.currentTenant = null;
+  /**
+   * Ejecuta `callback` con `context` como tenant activo, aislado del resto de
+   * las requests en vuelo.
+   *
+   * No requiere limpieza posterior: el scope se libera cuando la cadena
+   * asincrónica del callback termina.
+   */
+  runWithTenant<T>(context: ITenantContext, callback: () => T): T {
+    return tenantStorage.run(context, callback);
   }
 
   getDefaultTenant(): ITenantContext {

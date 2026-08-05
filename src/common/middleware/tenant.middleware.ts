@@ -66,9 +66,6 @@ export class TenantMiddleware implements NestMiddleware {
         }
       }
       
-      // Establecer el contexto de tenant para esta request
-      this.tenantService.setCurrentTenant(tenantContext);
-      
       // Agregar información extendida del tenant a la request para debugging
       (req as any).tenant = {
         ...tenantContext,
@@ -76,18 +73,22 @@ export class TenantMiddleware implements NestMiddleware {
         requestId,
         validatedAt: new Date().toISOString()
       };
-      
+
       this.logger.log(`[${requestId}] ✅ Tenant context established: ${tenantContext.tenantId} (schema: ${tenantContext.schema}) from ${source}`);
 
-      // Limpiar contexto al finalizar la request
       res.on('finish', () => {
         const duration = Date.now() - startTime;
-        this.logger.debug(`[${requestId}] Request completed in ${duration}ms, clearing tenant context`);
-        this.tenantService.clearCurrentTenant();
+        this.logger.debug(`[${requestId}] Request completed in ${duration}ms`);
       });
 
-      next();
-      
+      // Todo el pipeline de esta request corre dentro del scope del tenant.
+      //
+      // El contexto NO se limpia al finalizar: con AsyncLocalStorage el scope se
+      // libera solo cuando termina la cadena asincrónica. Limpiarlo desde
+      // res.on('finish') era parte del problema original — la request que
+      // terminaba primero borraba el contexto de las que seguían en vuelo.
+      this.tenantService.runWithTenant(tenantContext, () => next());
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`[${requestId}] ❌ Tenant middleware error:`, errorMessage);
