@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common'
 import {
   ApiTags,
@@ -15,17 +16,19 @@ import {
   ApiResponse,
   ApiBadRequestResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiOkResponse,
   ApiParam,
   ApiQuery,
   ApiBody,
 } from '@nestjs/swagger'
+import { AuthGuard } from '@nestjs/passport'
 
 import { DailyRatesService } from '../services/daily-room-rates.service'
 import { DailyRateCreateDto, DailyRateBulkDto } from '../dto'
-// Temporalmente comentamos la autenticación para evitar errores de compilación
-// import { AuthUser } from '../../../engine/auth/decorators/auth-user.decorator'
-// import { UserTokenPayload } from '../../../engine/auth/interfaces/user-token-payload.interface'
+import { ValidRoles } from '../../../engine/auth/interfaces/'
+import { GetUser, User, UserRoleGuard } from '../../../engine/auth/'
+import { RoleProtected } from '../../../engine/auth/decorators/role-protected.decorator'
 
 /**
  * DailyRoomRatesController - API REST para modelo OTA estándar
@@ -62,6 +65,9 @@ export class DailyRoomRatesController {
   @ApiQuery({ name: 'onlyAvailable', description: 'Solo días con disponibilidad', required: false })
   @ApiOkResponse({ description: 'Tarifas obtenidas exitosamente' })
   @ApiBadRequestResponse({ description: 'Parámetros de fecha inválidos' })
+  @ApiForbiddenResponse({ description: 'Requiere rol SUPER_ADMIN.' })
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async getRatesForPeriod(
     @Query('roomTypeId', ParseUUIDPipe) roomTypeId: string,
     @Query('startDate') startDate: string,
@@ -84,10 +90,12 @@ export class DailyRoomRatesController {
   @ApiBody({ type: DailyRateBulkDto })
   @ApiCreatedResponse({ description: 'Temporada configurada exitosamente' })
   @ApiBadRequestResponse({ description: 'Datos de temporada inválidos' })
+  @ApiForbiddenResponse({ description: 'Requiere rol SUPER_ADMIN.' })
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async setRatesForSeason(
     @Body() bulkDto: DailyRateBulkDto,
-    // @AuthUser() user: UserTokenPayload
-    @Body('userId') userId: string = 'temp-user-id'
+    @GetUser() user: User
   ) {
     await this.dailyRatesService.setRatesForPeriod(
       bulkDto.roomTypeId,
@@ -95,7 +103,7 @@ export class DailyRoomRatesController {
       bulkDto.endDate.toString(),
       bulkDto.baseRate,
       bulkDto.availableRooms,
-      userId,
+      user.id,
       {
         singleOccupancyRate: bulkDto.singleOccupancyRate,
         extraPersonRate: bulkDto.extraPersonRate,
@@ -122,10 +130,12 @@ export class DailyRoomRatesController {
   })
   @ApiBody({ type: DailyRateCreateDto })
   @ApiCreatedResponse({ description: 'Tarifa diaria configurada exitosamente' })
+  @ApiForbiddenResponse({ description: 'Requiere rol SUPER_ADMIN.' })
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async setSingleDayRate(
     @Body() createDto: DailyRateCreateDto,
-    // @AuthUser() user: UserTokenPayload
-    @Body('userId') userId: string = 'temp-user-id'
+    @GetUser() user: User
   ) {
     await this.dailyRatesService.setRatesForPeriod(
       createDto.roomTypeId,
@@ -133,7 +143,7 @@ export class DailyRoomRatesController {
       createDto.date.toString(),
       createDto.baseRate,
       createDto.availableRooms,
-      userId,
+      user.id,
       {
         singleOccupancyRate: createDto.singleOccupancyRate,
         extraPersonRate: createDto.extraPersonRate,
@@ -176,6 +186,9 @@ export class DailyRoomRatesController {
     }
   })
   @ApiOkResponse({ description: 'Disponibilidad actualizada exitosamente' })
+  @ApiForbiddenResponse({ description: 'Requiere rol SUPER_ADMIN.' })
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async updateAvailability(
     @Param('roomTypeId', ParseUUIDPipe) roomTypeId: string,
     @Param('date') date: string,
@@ -200,6 +213,9 @@ export class DailyRoomRatesController {
   @ApiParam({ name: 'roomTypeId', description: 'ID del tipo de habitación' })
   @ApiQuery({ name: 'startDate', description: 'Fecha inicio del rango a verificar' })
   @ApiQuery({ name: 'endDate', description: 'Fecha fin del rango a verificar' })
+  @ApiForbiddenResponse({ description: 'Requiere rol SUPER_ADMIN.' })
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async findMissingDates(
     @Param('roomTypeId', ParseUUIDPipe) roomTypeId: string,
     @Query('startDate') startDate: string,
@@ -235,6 +251,9 @@ export class DailyRoomRatesController {
       }
     }
   })
+  @ApiForbiddenResponse({ description: 'Requiere rol SUPER_ADMIN.' })
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async fillMissingDates(
     @Param('roomTypeId', ParseUUIDPipe) roomTypeId: string,
     @Body() fillDto: {
@@ -243,8 +262,7 @@ export class DailyRoomRatesController {
       defaultRate: number
       defaultAvailableRooms: number
     },
-    // @AuthUser() user: UserTokenPayload
-    @Body('userId') userId: string = 'temp-user-id'
+    @GetUser() user: User
   ) {
     const filledCount = await this.dailyRatesService.fillMissingDates(
       roomTypeId,
@@ -252,7 +270,7 @@ export class DailyRoomRatesController {
       fillDto.endDate,
       fillDto.defaultRate,
       fillDto.defaultAvailableRooms,
-      userId
+      user.id
     )
 
     return {
@@ -275,6 +293,9 @@ export class DailyRoomRatesController {
   @ApiParam({ name: 'roomTypeId', description: 'ID del tipo de habitación' })
   @ApiQuery({ name: 'startDate', description: 'Fecha inicio para estadísticas' })
   @ApiQuery({ name: 'endDate', description: 'Fecha fin para estadísticas' })
+  @ApiForbiddenResponse({ description: 'Requiere rol SUPER_ADMIN.' })
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async getOccupancyStats(
     @Param('roomTypeId', ParseUUIDPipe) roomTypeId: string,
     @Query('startDate') startDate: string,

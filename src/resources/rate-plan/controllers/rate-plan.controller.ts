@@ -56,8 +56,8 @@ export class RatePlanController extends BaseController<RatePlan> {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiOkResponse({ type: RatePlan })
-  // @RoleProtected(ValidRoles.SUPER_ADMIN)  // ← TEMPORAL: Comentado para testing
-  // @UseGuards(AuthGuard(), UserRoleGuard)  // ← TEMPORAL: Comentado para testing
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
   async findAll(@Query() ratePlanQueryDto: RatePlanQueryDto) {
     return this.getService().findAllWithFilterPaginated(ratePlanQueryDto)
   }
@@ -86,10 +86,10 @@ export class RatePlanController extends BaseController<RatePlan> {
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiBadRequestResponse({ description: 'Bad request.' })
-  // @RoleProtected(ValidRoles.SUPER_ADMIN)  // ← TEMPORAL: Comentado para testing
-  // @UseGuards(AuthGuard(), UserRoleGuard)  // ← TEMPORAL: Comentado para testing
-  async create(@Body() entity: RatePlanCreateDto) {
-    return this.getService().createRatePlan(entity, 'test-user-id')  // ← TEMPORAL: Usuario mock
+  @RoleProtected(ValidRoles.SUPER_ADMIN)
+  @UseGuards(AuthGuard(), UserRoleGuard)
+  async create(@Body() entity: RatePlanCreateDto, @GetUser() user: User) {
+    return this.getService().createRatePlan(entity, user.id)
   }
 
   @Delete('/:id')
