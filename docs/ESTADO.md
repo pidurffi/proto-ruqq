@@ -17,7 +17,7 @@ implementado y es coherente; alrededor hay deuda que impide ponerlo en producci�
 | Presupuestos formateados | Funciona (plantillas + variables) |
 | Autenticación | JWT + RBAC en todos los endpoints de administración |
 | Edición masiva de calendario | **Stub** que responde `success: true` sin escribir |
-| Testing | **Inexistente** — no hay framework instalado |
+| Testing | Jest instalado; 78 tests sobre `DateUtils` y el aislamiento de tenant. El motor sigue sin cubrir |
 | Documentación | Reescrita en esta pasada |
 
 **Última actividad de desarrollo: 2025-10-20.** El proyecto lleva unos diez meses detenido.
@@ -219,17 +219,30 @@ cobertura de rate plans del primero y la de restricciones del segundo.
 
 ---
 
-### 6. Alto — No hay testing
+### 6. Alto — Testing: infraestructura lista, cobertura mínima
 
-`package.json` **no declara script `test`**, ni `jest`, ni `@nestjs/testing`. El único archivo,
-`test/app.e2e-spec.ts`, es el scaffold de NestJS y no puede ejecutarse. Los commits que mencionan
-"se implementan pruebas" se refieren a colecciones de curls manuales.
+**Antes no había nada.** `package.json` no declaraba script `test`, ni `jest`, ni
+`@nestjs/testing`; el único archivo, `test/app.e2e-spec.ts`, era el scaffold de NestJS y no podía
+ejecutarse. Los commits que mencionaban "se implementan pruebas" se referían a colecciones de curls
+manuales.
 
-El código sin cubrir incluye aritmética de dinero y de fechas con manejo explícito de huso horario:
-es exactamente el tipo de lógica donde un error no lanza excepción, sólo cobra mal.
+**Hecho:**
 
-**Mínimo indispensable:** instalar `jest` + `@nestjs/testing` y cubrir `DateUtils` (borde de mes,
-año bisiesto, cambio de horario), el cálculo de `QuoteEngineService` y el aislamiento multi-tenant.
+- `jest`, `ts-jest`, `@types/jest` y `@nestjs/testing` instalados, con `jest.config.js` y los scripts
+  `test`, `test:watch`, `test:cov` y `test:e2e`.
+- `src/common/services/tenant.service.spec.ts` — 19 tests. El bloque de concurrencia reproduce la
+  condición de carrera de §1: se verificó que **falla contra la implementación anterior**, así que
+  detecta la regresión si alguien vuelve a introducir estado compartido.
+- `src/common/utils/date.utils.spec.ts` — 59 tests sobre bordes de mes y de año, años bisiestos y
+  estabilidad de zona horaria. La suite pasa idéntica de UTC-11 a UTC+14.
+
+**Falta lo más importante: el motor de cotización sigue sin un solo test.** Ahí está la aritmética
+de dinero. No conviene escribirlos todavía: hay dos motores divergentes (§5) y el que atiende
+`/calculate` está incompleto (§4). Escribir tests ahora sería fijar un comportamiento que hay que
+cambiar. El orden correcto es unificar, completar y recién entonces cubrir.
+
+Los tests unitarios conviven con el fuente (`*.spec.ts` al lado del archivo que prueban);
+`tsconfig.build.json` los excluye del build.
 
 ---
 
@@ -288,13 +301,35 @@ El template sigue nombrando la base `boiler-00`, con usuario y contraseña del p
 expone el puerto `5435`. No coincide con ningún `.env` razonable del proyecto. Además el volumen de
 datos está comentado: **el contenedor pierde la base al recrearse**.
 
-### 13. Configuración de ESLint duplicada y obsoleta
+### 13. El lint no corre — configuración de ESLint obsoleta
 
-Coexisten `.eslintrc.js` y `.eslintrc.json` en la raíz. Además el proyecto usa **ESLint 9**, que
-espera *flat config* (`eslint.config.js`); el formato `.eslintrc` está deprecado y sólo funciona por
-compatibilidad. Hay que consolidar en un único `eslint.config.js`.
+**Verificado ejecutándolo:** `npm run lint` falla siempre, con este mensaje:
 
-### 14. `rate_plans` usa `varchar` donde el resto del sistema usa `uuid`
+```
+ESLint couldn't find an eslint.config.(js|mjs|cjs) file.
+From ESLint v9.0.0, the default configuration file is now eslint.config.js.
+```
+
+El proyecto usa **ESLint 9**, que exige *flat config*. En la raíz coexisten `.eslintrc.js` y
+`.eslintrc.json`, los dos en el formato viejo, los dos ignorados. No es que el lint esté mal
+configurado: **no se ejecuta nunca**, y no lo hace desde que se subió ESLint a la versión 9.
+
+Hay que migrar a un único `eslint.config.js`. Hasta entonces, ninguna regla de estilo o de calidad
+se está aplicando, lo que explica cosas como los imports sin usar y los `any` sueltos.
+
+### 14. `package-lock.json` está en el `.gitignore`
+
+`.gitignore:47` excluye el lockfile. Con `^` en todas las dependencias, cada `npm install` resuelve
+un árbol distinto: dos desarrolladores, o el entorno de desarrollo y el de producción, pueden
+terminar con versiones diferentes de la misma librería sin que nadie lo note. Es además un agujero de
+cadena de suministro — no hay integridad verificable de lo que se instala.
+
+El lockfile va commiteado. Es la práctica estándar y la razón por la que npm lo genera.
+
+Nota: el `npm install` de esta pasada reportó **41 vulnerabilidades (4 moderadas, 37 altas)**. Ese
+número no se puede ni reproducir ni seguir en el tiempo sin lockfile.
+
+### 15. `rate_plans` usa `varchar` donde el resto del sistema usa `uuid`
 
 **Dónde:** `src/engine/migrations/1757424167154-CreateRatePlansAndUpdateDailyRates.ts:10`
 
@@ -326,7 +361,7 @@ Tres consecuencias:
 Se corrige con una migración de conversión (`ALTER TABLE … ALTER COLUMN … TYPE uuid USING …::uuid`),
 tratando la FK antes y después.
 
-### 15. Migraciones: el orden depende del reseteo
+### 16. Migraciones: el orden depende del reseteo
 
 `1756996231172-CreateMultiTenantSystem` (multi-tenant) corre **antes** que
 `1757360687036-inicial` (tablas de dominio), porque las migraciones del modelo v2.3 se borraron y se
@@ -336,7 +371,7 @@ tablas— pero es frágil y no está documentado en el propio archivo.
 Consecuencia práctica: **no hay ruta de upgrade desde una base con el modelo viejo**. Cualquier
 entorno anterior a septiembre 2025 hay que recrearlo desde cero.
 
-### 16. `console.log` en rutas de producción
+### 17. `console.log` en rutas de producción
 
 `replaceVariables()` (`src/resources/quotes/services/quotes.service.ts:391`) y los tenant providers
 loguean con `console.log` en cada operación de repositorio. El proyecto tiene Winston configurado
@@ -368,12 +403,16 @@ con rotación diaria: hay que usarlo, con nivel `debug`.
 ~~1. Proteger el CRUD de `daily-room-rates` (§2).~~ ✅ hecho
 ~~2. `AsyncLocalStorage` para el contexto de tenant (§1).~~ ✅ hecho
 
-3. **Instalar Jest y cubrir `DateUtils` y el motor** (§6). Sin red de seguridad no se toca el resto.
-4. **Unificar los dos motores en uno** (§5), tomando la cobertura de rate plans de uno y la de
+~~3. Instalar Jest y cubrir `DateUtils` y el aislamiento de tenant (§6).~~ ✅ hecho — 78 tests
+
+4. **Migrar ESLint a flat config** (§13). Hoy el lint no corre y ninguna regla se aplica.
+5. **Commitear el `package-lock.json`** (§14). Una línea del `.gitignore`.
+6. **Unificar los dos motores en uno** (§5), tomando la cobertura de rate plans de uno y la de
    restricciones del otro.
-5. **Completar el motor unificado** con ocupación, inventario y restricciones (§4).
-6. **Resolver `bulk-edit`** (§3): implementarlo o devolver `501` mientras tanto, pero dejar de
+7. **Completar el motor unificado** con ocupación, inventario y restricciones (§4), y recién
+   entonces cubrirlo con tests: es donde vive la aritmética de dinero.
+8. **Resolver `bulk-edit`** (§3): implementarlo o devolver `501` mientras tanto, pero dejar de
    responder éxito en falso.
-7. **Eliminar el módulo `restrictions`** (§8) una vez que el motor lea todo de `daily_room_rates`.
-8. **Tenants desde base de datos** (§7) y proteger o eliminar los endpoints de debug (§10).
-9. **Rate plans derivados** (§9), la primera funcionalidad nueva con valor comercial directo.
+9. **Eliminar el módulo `restrictions`** (§8) una vez que el motor lea todo de `daily_room_rates`.
+10. **Tenants desde base de datos** (§7) y proteger o eliminar los endpoints de debug (§10).
+11. **Rate plans derivados** (§9), la primera funcionalidad nueva con valor comercial directo.

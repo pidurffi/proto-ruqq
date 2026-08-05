@@ -45,7 +45,7 @@ Table room_type {
 // =============================================================================
 
 Table rate_plans {
-  id varchar [pk, not null, default: `uuid_generate_v4()`, note: 'ATENCIÓN: varchar, no uuid. Ver docs/ESTADO.md §14']
+  id varchar [pk, not null, default: `uuid_generate_v4()`, note: 'ATENCIÓN: varchar, no uuid. Ver docs/ESTADO.md §15']
   uid varchar [not null, default: `uuid_generate_v4()`]
   name varchar(100) [not null]
   code varchar(20) [unique, not null, note: 'BAR, NRF, ADV7, BB, RO…']
@@ -88,7 +88,7 @@ Table daily_room_rates {
   id uuid [pk, not null, default: `uuid_generate_v4()`]
   uid uuid [not null]
   room_type_id uuid [not null]
-  rate_plan_id varchar [not null, note: 'ATENCIÓN: varchar, no uuid. Ver docs/ESTADO.md §14']
+  rate_plan_id varchar [not null, note: 'ATENCIÓN: varchar, no uuid. Ver docs/ESTADO.md §15']
   date date [not null, note: 'UN REGISTRO POR DÍA — estándar OTA']
 
   base_rate decimal(10,2) [not null, note: 'Precio de la noche para la capacidad base']

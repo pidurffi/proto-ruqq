@@ -156,9 +156,19 @@ para funcionar en multi-tenant — ver [CLAUDE.md](CLAUDE.md).
 
 ### Testing
 
-**No hay.** El proyecto no tiene `jest` ni `@nestjs/testing` instalados, ni script `test`. El archivo
-`test/app.e2e-spec.ts` es el scaffold de NestJS y no puede ejecutarse. Es la deuda más urgente
-después de los dos problemas de seguridad — ver [docs/ESTADO.md](docs/ESTADO.md) §6.
+| Comando | Descripción |
+|---|---|
+| `npm test` | tests unitarios |
+| `npm run test:watch` | modo watch |
+| `npm run test:cov` | con reporte de cobertura |
+| `npm run test:e2e` | tests end-to-end |
+
+Los tests unitarios conviven con el fuente (`*.spec.ts` junto al archivo que prueban). Hoy cubren
+`DateUtils` y el aislamiento de tenant — **el motor de cotización todavía no tiene tests**, y ahí
+está la aritmética de dinero. Ver [docs/ESTADO.md](docs/ESTADO.md) §6.
+
+> `npm run lint` **no funciona**: el proyecto usa ESLint 9, que exige *flat config*, y sólo hay
+> archivos `.eslintrc.*` del formato viejo ([docs/ESTADO.md](docs/ESTADO.md) §13).
 
 ---
 

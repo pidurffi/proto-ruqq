@@ -273,6 +273,25 @@ el que llama no tiene forma de darse cuenta.
 
 ---
 
+## Tests
+
+```bash
+npm test              # unitarios
+npm run test:watch    # modo watch
+npm run test:cov      # con cobertura
+```
+
+Los tests unitarios van **junto al fuente** (`algo.spec.ts` al lado de `algo.ts`), no en `test/`.
+Ese directorio queda para los end-to-end. `tsconfig.build.json` excluye los `*spec.ts` del build.
+
+Dos reglas que salieron de los tests que ya existen:
+
+- **Un test de regresión tiene que fallar contra el código viejo.** El bloque de concurrencia de
+  `tenant.service.spec.ts` se verificó restaurando la implementación anterior y comprobando que
+  falla. Un test que pasa en ambas versiones no prueba nada.
+- **La lógica de fechas se prueba en varias zonas horarias.** `TZ=UTC npm test`,
+  `TZ=Pacific/Kiritimati npm test`, etc. Es lo que impide que vuelva a colarse un desfase de un día.
+
 ## Migraciones
 
 ```bash
@@ -284,7 +303,7 @@ npm run db:revert                                      # revertir la última
 
 **Revisar siempre la migración generada antes de aplicarla.** TypeORM compara contra las entidades, y
 hoy hay una divergencia conocida: `rate_plans` está creada con columnas `varchar` donde las entidades
-declaran `uuid` ([docs/ESTADO.md](docs/ESTADO.md) §14). La primera generación automática va a
+declaran `uuid` ([docs/ESTADO.md](docs/ESTADO.md) §15). La primera generación automática va a
 proponer convertirlas — es correcto, pero hay que tratar la foreign key con cuidado.
 
 `PG_DB_SYNCHRONIZE` va **siempre** en `false`. El esquema se versiona con migraciones.
@@ -295,7 +314,7 @@ proponer convertirlas — es correcto, pero hay que tratar la foreign key con cu
 
 El proyecto tiene Winston configurado con rotación diaria. **Usarlo**, no `console.log`. Hoy hay
 `console.log` en rutas de ejecución normales (`replaceVariables()`, tenant providers) que ensucian la
-salida de producción ([docs/ESTADO.md](docs/ESTADO.md) §16).
+salida de producción ([docs/ESTADO.md](docs/ESTADO.md) §17).
 
 Para trazas de diagnóstico, nivel `debug`.
 
